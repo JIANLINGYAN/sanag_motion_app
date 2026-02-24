@@ -58,32 +58,36 @@ function App() {
       if (parsed) {
         setParsedResponse(parsed);
         
-        // 处理心率数据
+        // 处理心率数据（包括主动测量上报）
         if (parsed.fieldTypeCode === FIELD_TYPE.HEALTH_MONITOR && 
             parsed.typeId === TYPE_ID.HEART_RATE_DATA) {
           const { hour, minute, value } = parsed.data;
           if (typeof hour === 'number' && typeof minute === 'number' && typeof value === 'number') {
-            const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-            const timestamp = hour * 60 + minute;
+            // 使用精确到秒的时间戳作为唯一标识，避免快速上报时数据被覆盖
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const timestamp = Date.now();
             setHeartRateData(prev => {
-              // 避免重复数据
-              if (prev.some(d => d.time === timeStr)) return prev;
-              return [...prev, { time: timeStr, value, timestamp }].sort((a, b) => a.timestamp - b.timestamp);
+              // 保留最近100个数据点
+              const newData = [...prev, { time: timeStr, value, timestamp }];
+              return newData.slice(-100);
             });
           }
         }
         
-        // 处理血氧数据
+        // 处理血氧数据（包括主动测量上报）
         if (parsed.fieldTypeCode === FIELD_TYPE.HEALTH_MONITOR && 
             parsed.typeId === TYPE_ID.SPO2_DATA) {
           const { hour, minute, value } = parsed.data;
           if (typeof hour === 'number' && typeof minute === 'number' && typeof value === 'number') {
-            const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-            const timestamp = hour * 60 + minute;
+            // 使用精确到秒的时间戳作为唯一标识，避免快速上报时数据被覆盖
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const timestamp = Date.now();
             setSpo2Data(prev => {
-              // 避免重复数据
-              if (prev.some(d => d.time === timeStr)) return prev;
-              return [...prev, { time: timeStr, value, timestamp }].sort((a, b) => a.timestamp - b.timestamp);
+              // 保留最近100个数据点
+              const newData = [...prev, { time: timeStr, value, timestamp }];
+              return newData.slice(-100);
             });
           }
         }

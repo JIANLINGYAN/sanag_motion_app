@@ -29,6 +29,13 @@ export function DeviceConnection({ onConnectionChange }: DeviceConnectionProps) 
         setIsConnected(true);
         setDeviceName(bluetoothService.getDeviceName());
         onConnectionChange(true);
+        
+        // 连接成功后自动同步时间（东八区 +8）
+        const now = new Date();
+        await bluetoothService.syncTime({
+          timezone: 8,
+          timestamp: now.getTime(),
+        });
       }
     } finally {
       setIsConnecting(false);
