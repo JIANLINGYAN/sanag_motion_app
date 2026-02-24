@@ -46,14 +46,20 @@ npm run preview  # 预览生产构建结果
 - `DeviceInfoSync.tsx` - 0xBA 设备信息同步 (个人信息、时间、心率/乳酸区间)
 - `SportTarget.tsx` - 0xBB 运动目标设置 (距离、卡路里、步数)
 - `HealthMonitor.tsx` - 0xBC 健康检测 (血氧、心率、颈椎健康、跌倒监测)
+- `HealthChart.tsx` - 健康数据图表可视化组件
 - `SportHealth.tsx` - 0xBD 运动健康 (运动状态、GPS、实时数据、运动总结)
 - `LogPanel.tsx` / `ResponsePanel.tsx` - 日志和响应展示
 
 ### 数据流
 
-1. 用户操作组件 → 调用 `bluetoothService.send()` 发送指令
+1. 用户操作组件 → 调用 `bluetoothService` 的方法 (如 `setPersonalInfo()`) 发送指令
 2. 设备响应 → `notifyCharacteristic` 触发 → 解析器解析 → 回调更新 UI
 3. `App.tsx` 注册全局数据回调，解析后显示 Toast 并更新 `ResponsePanel`
+
+### 日志机制
+
+- `bluetoothService.setLogCallback(callback)` - 注册日志回调，接收连接/发送/接收/错误事件
+- `LogPanel` 组件通过此回调展示所有蓝牙通信日志
 
 ### UI 组件
 
