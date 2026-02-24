@@ -70,3 +70,27 @@ import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 ```
 
 路径别名 `@/` 映射到 `./src/` (见 `vite.config.ts`)。
+
+### 桌面版 (`desktop/`)
+
+当 Web Bluetooth 在某些电脑上不兼容时，可使用 WinRT 本地版本：
+
+```
+desktop/
+├── server.py          # Python FastAPI + WinRT 蓝牙服务
+├── requirements.txt   # Python 依赖
+├── run.bat           # Windows 启动脚本
+└── static/index.html # 桌面版前端
+```
+
+**启动方式**：
+```bash
+cd desktop
+pip install -r requirements.txt
+python server.py
+# 访问 http://localhost:8000
+```
+
+**架构差异**：
+- Web 版本：浏览器 → Web Bluetooth API → 蓝牙设备
+- 桌面版：浏览器 → HTTP/WebSocket → Python FastAPI → WinRT → 蓝牙设备

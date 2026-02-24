@@ -62,12 +62,26 @@ class BluetoothService {
     return new Uint8Array([...packet, checksum]);
   }
 
+  // 超时包装器
+  private withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) => 
+        setTimeout(() => reject(new Error(`${errorMsg}`)), ms)
+      )
+    ]);
+  }
+
   // 连接蓝牙设备
   async connect(): Promise<boolean> {
+    let device: BluetoothDevice | null = null;
+    let server: BluetoothRemoteGATTServer | null = null;
+
     try {
+      // 第一步：扫描设备
       this.log('info', '正在扫描蓝牙设备...');
       
-      const device = await navigator.bluetooth.requestDevice({
+      device = await navigator.bluetooth.requestDevice({
         filters: [
           { namePrefix: 'sanag' },
           { namePrefix: 'Sanag' },
@@ -77,29 +91,95 @@ class BluetoothService {
           { namePrefix: 'for' },
           { namePrefix: 'APP' },
           { namePrefix: 'AI' },
+          { namePrefix: 'apex' },
+          { namePrefix: 'Apex' },
         ],
         optionalServices: [BLE_UUID.SERVICE],
       });
 
       this.log('info', `找到设备: ${device.name || '未知设备'}`);
 
-      const server = await device.gatt?.connect();
-      if (!server) {
-        throw new Error('无法连接到 GATT 服务器');
+      // 监听设备断开事件
+      device.addEventListener('gattserverdisconnected', () => {
+        this.log('info', '设备已断开连接');
+        this.deviceInfo = null;
+        this.isConnected = false;
+      });
+
+      // 第二步：连接 GATT
+      this.log('info', '正在连接 GATT...');
+      if (!device.gatt) {
+        throw new Error('设备不支持 GATT');
+      }
+      
+      server = await device.gatt.connect();
+      this.log('info', 'GATT 已连接');
+
+      // 第三步：获取所有服务（触发服务发现）
+      this.log('info', '正在发现服务...');
+      const allServices = await this.withTimeout(
+        server.getPrimaryServices(),
+        10000,
+        '服务发现超时'
+      );
+      
+      this.log('info', `发现 ${allServices.length} 个服务`);
+      
+      // 查找我们的服务
+      let service: BluetoothRemoteGATTService | null = null;
+      for (const s of allServices) {
+        this.log('info', `  - ${s.uuid}`);
+        if (s.uuid === BLE_UUID.SERVICE || 
+            s.uuid === BLE_UUID.SERVICE.toLowerCase() ||
+            s.uuid === BLE_UUID.SERVICE.toUpperCase()) {
+          service = s;
+          this.log('info', '✓ 找到目标服务');
+          break;
+        }
+      }
+      
+      if (!service) {
+        // 尝试直接获取服务
+        this.log('info', '尝试直接获取目标服务...');
+        try {
+          service = await server.getPrimaryService(BLE_UUID.SERVICE);
+        } catch {
+          throw new Error('未找到目标服务 FAA0');
+        }
       }
 
-      this.log('info', '已连接到 GATT 服务器');
+      // 第四步：获取特征值
+      this.log('info', '正在获取特征值...');
+      const characteristics = await service.getCharacteristics();
+      this.log('info', `发现 ${characteristics.length} 个特征值`);
+      
+      let writeCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
+      let notifyCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
+      
+      for (const char of characteristics) {
+        this.log('info', `  - ${char.uuid}`);
+        if (char.uuid === BLE_UUID.WRITE || char.uuid === BLE_UUID.WRITE.toLowerCase()) {
+          writeCharacteristic = char;
+        }
+        if (char.uuid === BLE_UUID.NOTIFY || char.uuid === BLE_UUID.NOTIFY.toLowerCase()) {
+          notifyCharacteristic = char;
+        }
+      }
 
-      const service = await server.getPrimaryService(BLE_UUID.SERVICE);
-      this.log('info', '已获取服务');
+      if (!writeCharacteristic || !notifyCharacteristic) {
+        throw new Error('未找到必要的特征值');
+      }
+      
+      this.log('info', '✓ 已获取特征值');
 
-      const writeCharacteristic = await service.getCharacteristic(BLE_UUID.WRITE);
-      const notifyCharacteristic = await service.getCharacteristic(BLE_UUID.NOTIFY);
-
-      this.log('info', '已获取特征值');
-
-      // 开始监听通知
-      await notifyCharacteristic.startNotifications();
+      // 第五步：开启通知
+      this.log('info', '正在开启通知...');
+      await this.withTimeout(
+        notifyCharacteristic.startNotifications(),
+        5000,
+        '开启通知超时'
+      );
+      
       notifyCharacteristic.addEventListener('characteristicvaluechanged', (event: Event) => {
         const target = event.target as BluetoothRemoteGATTCharacteristic;
         const value = target.value;
@@ -108,8 +188,7 @@ class BluetoothService {
           this.handleNotification(data);
         }
       });
-
-      this.log('info', '已开始监听通知');
+      this.log('info', '✓ 已开启通知');
 
       this.deviceInfo = {
         device,
@@ -120,10 +199,19 @@ class BluetoothService {
       };
 
       this.isConnected = true;
-      this.log('info', '蓝牙设备连接成功');
+      this.log('info', '========== 连接成功 ==========');
       return true;
+      
     } catch (error) {
-      this.log('error', `连接失败: ${error}`);
+      const err = error as Error;
+      this.log('error', `连接失败: ${err.name} - ${err.message}`);
+      
+      // 清理
+      if (server?.connected) {
+        server.disconnect();
+      }
+      this.isConnected = false;
+      this.deviceInfo = null;
       return false;
     }
   }

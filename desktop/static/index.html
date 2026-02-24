@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sanag 蓝牙工具 - 桌面版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .log-send { color: #059669; }
+        .log-receive { color: #2563eb; }
+        .log-info { color: #6b7280; }
+        .log-error { color: #dc2626; }
+        .tab-active { border-bottom: 2px solid #2563eb; color: #2563eb; }
+        .tab-inactive { border-bottom: 2px solid transparent; color: #6b7280; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div id="app" class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="bg-white border-b sticky top-0 z-10">
+            <div class="px-4 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-blue-600 text-white p-2 rounded-lg">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.14 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-bold text-gray-900">Sanag 蓝牙协议测试工具</h1>
+                            <p class="text-sm text-gray-500">桌面版 (WinRT)</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div id="statusDot" class="w-3 h-3 rounded-full bg-gray-300"></div>
+                        <span id="statusText" class="text-sm text-gray-600">未连接</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="px-4 py-6 space-y-6">
+            <!-- 设备连接卡片 -->
+            <div class="bg-white rounded-lg border shadow-sm">
+                <div class="px-4 py-3 border-b">
+                    <h2 class="text-lg font-semibold flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.14 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>
+                        </svg>
+                        设备连接
+                    </h2>
+                </div>
+                <div class="p-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <span id="connectionBadge" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414"/>
+                                </svg>
+                                未连接
+                            </span>
+                            <span id="deviceName" class="text-sm font-medium"></span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button id="scanBtn" onclick="scanDevices()" class="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                </svg>
+                                扫描设备
+                            </button>
+                            <button id="disconnectBtn" onclick="disconnect()" class="inline-flex items-center px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700 hidden">
+                                断开连接
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 设备列表 -->
+                    <div id="deviceList" class="mt-4 hidden">
+                        <div class="text-sm text-gray-500 mb-2">选择设备:</div>
+                        <div id="deviceItems" class="space-y-2 max-h-48 overflow-y-auto"></div>
+                    </div>
+                    
+                    <!-- 连接说明 -->
+                    <div id="connectHint" class="mt-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+                        <p class="font-medium">连接说明：</p>
+                        <ul class="list-disc list-inside mt-1 space-y-1">
+                            <li>点击"扫描设备"搜索附近的 Sanag 设备</li>
+                            <li>选择设备后自动连接并同步时间</li>
+                            <li>仅支持 Windows 10+ 系统</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 响应面板 -->
+            <div id="responsePanel" class="bg-white rounded-lg border shadow-sm hidden">
+                <div class="px-4 py-3 border-b flex justify-between items-center">
+                    <h3 class="font-medium" id="responseTitle">响应数据</h3>
+                    <button onclick="closeResponse()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="p-4">
+                    <pre id="responseContent" class="text-sm bg-gray-50 p-3 rounded overflow-auto max-h-64"></pre>
+                </div>
+            </div>
+
+            <!-- 主标签页 -->
+            <div class="bg-white rounded-lg border shadow-sm">
+                <div class="border-b">
+                    <nav class="flex">
+                        <button onclick="switchTab('device-info')" class="tab-btn tab-active px-4 py-3 font-medium" data-tab="device-info">设备信息 (0xBA)</button>
+                        <button onclick="switchTab('sport-target')" class="tab-btn tab-inactive px-4 py-3 font-medium" data-tab="sport-target">运动目标 (0xBB)</button>
+                        <button onclick="switchTab('health')" class="tab-btn tab-inactive px-4 py-3 font-medium" data-tab="health">健康检测 (0xBC)</button>
+                        <button onclick="switchTab('sport-health')" class="tab-btn tab-inactive px-4 py-3 font-medium" data-tab="sport-health">运动健康 (0xBD)</button>
+                    </nav>
+                </div>
+
+                <!-- 设备信息 0xBA -->
+                <div id="tab-device-info" class="tab-content p-4">
+                    <div class="border-b mb-4">
+                        <nav class="flex gap-4">
+                            <button onclick="switchSubTab('personal')" class="sub-tab-btn text-sm pb-2 border-b-2 border-blue-600 text-blue-600" data-subtab="personal">个人信息</button>
+                            <button onclick="switchSubTab('time')" class="sub-tab-btn text-sm pb-2 border-b-2 border-transparent text-gray-500" data-subtab="time">时间同步</button>
+                            <button onclick="switchSubTab('heartrate')" class="sub-tab-btn text-sm pb-2 border-b-2 border-transparent text-gray-500" data-subtab="heartrate">心率区间</button>
+                            <button onclick="switchSubTab('lactate')" class="sub-tab-btn text-sm pb-2 border-b-2 border-transparent text-gray-500" data-subtab="lactate">乳酸区间</button>
+                        </nav>
+                    </div>
+                    
+                    <!-- 个人信息 -->
+                    <div id="subtab-personal" class="subtab-content space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="block text-sm font-medium mb-1">身高 (cm)</label><input type="number" id="height" value="170" class="w-full border rounded px-3 py-2 disabled:bg-gray-100"></div>
+                            <div><label class="block text-sm font-medium mb-1">体重 (kg)</label><input type="number" id="weight" value="60" step="0.1" class="w-full border rounded px-3 py-2 disabled:bg-gray-100"></div>
+                            <div><label class="block text-sm font-medium mb-1">年龄</label><input type="number" id="age" value="25" class="w-full border rounded px-3 py-2 disabled:bg-gray-100"></div>
+                            <div><label class="block text-sm font-medium mb-1">性别</label>
+                                <select id="gender" class="w-full border rounded px-3 py-2 disabled:bg-gray-100">
+                                    <option value="0">保密</option>
+                                    <option value="1" selected>男</option>
+                                    <option value="2">女</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="setPersonalInfo()" class="flex-1 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:bg-gray-300">设置个人信息</button>
+                            <button onclick="getPersonalInfo()" class="flex-1 border px-4 py-2 rounded hover:bg-gray-50 disabled:bg-gray-100">获取个人信息</button>
+                        </div>
+                    </div>
+                    
+                    <!-- 时间同步 -->
+                    <div id="subtab-time" class="subtab-content space-y-4 hidden">
+                        <div><label class="block text-sm font-medium mb-1">时区</label>
+                            <select id="timezone" class="w-full border rounded px-3 py-2 disabled:bg-gray-100"></select>
+                        </div>
+                        <div class="p-3 bg-gray-50 rounded-lg text-sm text-gray-600">
+                            <p>当前时间: <span id="currentTime"></span></p>
+                        </div>
+                        <button onclick="syncTime()" class="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-gray-300">同步时间</button>
+                    </div>
+                    
+                    <!-- 心率区间 -->
+                    <div id="subtab-heartrate" class="subtab-content space-y-4 hidden">
+                        <div id="hrZones" class="space-y-2"></div>
+                        <button onclick="setHeartRateZones()" class="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-gray-300">设置心率区间</button>
+                    </div>
+                    
+                    <!-- 乳酸区间 -->
+                    <div id="subtab-lactate" class="subtab-content space-y-4 hidden">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="block text-sm font-medium mb-1">启用</label>
+                                <select id="lactateEnabled" class="w-full border rounded px-3 py-2 disabled:bg-gray-100">
+                                    <option value="1">启用</option>
+                                    <option value="0">关闭</option>
+                                </select>
+                            </div>
+                            <div><label class="block text-sm font-medium mb-1">心率最小 (bpm)</label><input type="number" id="lactateHrMin" value="150" class="w-full border rounded px-3 py-2 disabled:bg-gray-100"></div>
+                            <div><label class="block text-sm font-medium mb-1">心率最大 (bpm)</label><input type="number" id="lactateHrMax" value="180" class="w-full border rounded px-3 py-2 disabled:bg-gray-100"></div>
+                            <div><label class="block text-sm font-medium mb-1">最低配速 (秒/公里)</label><input type="number" id="lactatePaceMin" value="300" class="w-full border rounded px-3 py-2 disabled:bg-gray-100"></div>
+                            <div><label class="block text-sm font-medium mb-1">最高配速 (秒/公里)</label><input type="number" id="lactatePaceMax" value="360" class="w-full border rounded px-3 py-2 disabled:bg-gray-100"></div>
+                        </div>
+                        <button onclick="setLactateZone()" class="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-gray-300">设置乳酸区间</button>
+                    </div>
+                </div>
+
+                <!-- 运动目标 0xBB -->
+                <div id="tab-sport-target" class="tab-content p-4 hidden">
+                    <div class="border-b mb-4">
+                        <nav class="flex gap-4">
+                            <button onclick="switchSubTab('distance')" class="sub-tab-btn text-sm pb-2 border-b-2 border-blue-600 text-blue-600" data-subtab="distance">距离目标</button>
+                            <button onclick="switchSubTab('calories')" class="sub-tab-btn text-sm pb-2 border-b-2 border-transparent text-gray-500" data-subtab="calories">消耗目标</button>
+                            <button onclick="switchSubTab('steps')" class="sub-tab-btn text-sm pb-2 border-b-2 border-transparent text-gray-500" data-subtab="steps">步数目标</button>
+                            <button onclick="switchSubTab('daily')" class="sub-tab-btn text-sm pb-2 border-b-2 border-transparent text-gray-500" data-subtab="daily">每日数据</button>
+                        </nav>
+                    </div>
+                    
+                    <div id="subtab-distance" class="subtab-content space-y-4">
+                        <div><label class="block text-sm font-medium mb-1">目标距离 (米)</label><input type="number" id="distanceTarget" value="10000" class="w-full border rounded px-3 py-2 disabled:bg-gray-100"></div>
+                        <div class="flex gap-2">
+                            <button onclick="setDistanceTarget()" class="flex-1 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:bg-gray-300">设置</button>
+                            <button onclick="getDistanceTarget()" class="flex-1 border px-4 py-2 rounded hover:bg-gray-50 disabled:bg-gray-100">获取</button>
+                        </div>
+                    </div>
+                    
+                    <div id="subtab-calories" class="subtab-content space-y-4 hidden">
+                        <div><label class="block text-sm font-medium mb-1">目标消耗 (卡)</label><input type="number" id="calorieTarget" value="3000000" class="w-full border rounded px-3 py-2 disabled:bg-gray-100"></div>
+                        <div class="text-sm text-gray-500">当前设置: <span id="calorieDisplay">3000</span> 大卡</div>
+                        <div class="flex gap-2">
+                            <button onclick="setCalorieTarget()" class="flex-1 bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700 disabled:bg-gray-300">设置</button>
+                            <button onclick="getCalorieTarget()" class="flex-1 border px-4 py-2 rounded hover:bg-gray-50 disabled:bg-gray-100">获取</button>
+                        </div>
+                    </div>
+                    
+                    <div id="subtab-steps" class="subtab-content space-y-4 hidden">
+                        <div><label class="block text-sm font-medium mb-1">目标步数</label><input type="number" id="stepTarget" value="10000" class="w-full border rounded px-3 py-2 disabled:bg-gray-100"></div>
+                        <div class="flex gap-2">
+                            <button onclick="setStepTarget()" class="flex-1 bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 disabled:bg-gray-300">设置</button>
+                            <button onclick="getStepTarget()" class="flex-1 border px-4 py-2 rounded hover:bg-gray-50 disabled:bg-gray-100">获取</button>
+                        </div>
+                    </div>
+                    
+                    <div id="subtab-daily" class="subtab-content space-y-4 hidden">
+                        <div><label class="block text-sm font-medium mb-1">日期</label><input type="date" id="dailyDate" class="w-full border rounded px-3 py-2 disabled:bg-gray-100"></div>
+                        <button onclick="getDailyData()" class="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-gray-300">获取当天数据</button>
+                    </div>
+                </div>
+
+                <!-- 健康检测 0xBC -->
+                <div id="tab-health" class="tab-content p-4 hidden">
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <!-- 心率 -->
+                        <div class="border rounded-lg p-4">
+                            <h4 class="font-medium mb-3 flex items-center gap-2 text-red-600">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                                心率
+                            </h4>
+                            <div class="flex items-center gap-2 mb-2"><label class="text-sm">监测开关</label><input type="checkbox" id="hrMonitorEnabled" checked class="w-4 h-4"></div>
+                            <div class="flex items-center gap-2 mb-3"><label class="text-sm">间隔(分钟)</label><input type="number" id="hrMonitorInterval" value="10" class="w-20 border rounded px-2 py-1 text-sm"></div>
+                            <div class="flex gap-2 mb-3">
+                                <button onclick="setHeartRateMonitor()" class="flex-1 bg-red-500 text-white px-2 py-1 rounded text-sm">设置</button>
+                                <button onclick="getHeartRateMonitor()" class="flex-1 border px-2 py-1 rounded text-sm">获取</button>
+                            </div>
+                            <button onclick="toggleHrMeasure()" id="hrMeasureBtn" class="w-full bg-red-600 text-white px-2 py-1.5 rounded text-sm">开始测量</button>
+                        </div>
+                        
+                        <!-- 血氧 -->
+                        <div class="border rounded-lg p-4">
+                            <h4 class="font-medium mb-3 flex items-center gap-2 text-blue-600">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                                血氧
+                            </h4>
+                            <div class="flex items-center gap-2 mb-2"><label class="text-sm">监测开关</label><input type="checkbox" id="spo2MonitorEnabled" checked class="w-4 h-4"></div>
+                            <div class="flex items-center gap-2 mb-3"><label class="text-sm">间隔(分钟)</label><input type="number" id="spo2MonitorInterval" value="10" class="w-20 border rounded px-2 py-1 text-sm"></div>
+                            <div class="flex gap-2 mb-3">
+                                <button onclick="setSpo2Monitor()" class="flex-1 bg-blue-500 text-white px-2 py-1 rounded text-sm">设置</button>
+                                <button onclick="getSpo2Monitor()" class="flex-1 border px-2 py-1 rounded text-sm">获取</button>
+                            </div>
+                            <button onclick="toggleSpo2Measure()" id="spo2MeasureBtn" class="w-full bg-blue-600 text-white px-2 py-1.5 rounded text-sm">开始测量</button>
+                        </div>
+                    </div>
+                    
+                    <!-- 图表 -->
+                    <div class="border rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <h4 class="font-medium">实时数据</h4>
+                            <button onclick="clearChartData()" class="text-xs text-gray-500">清除</button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><canvas id="hrChart" height="150"></canvas></div>
+                            <div><canvas id="spo2Chart" height="150"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 运动健康 0xBD -->
+                <div id="tab-sport-health" class="tab-content p-4 hidden">
+                    <div class="border-b mb-4">
+                        <nav class="flex gap-4">
+                            <button onclick="switchSubTab('status')" class="sub-tab-btn text-sm pb-2 border-b-2 border-blue-600 text-blue-600" data-subtab="status">运动状态</button>
+                            <button onclick="switchSubTab('gps')" class="sub-tab-btn text-sm pb-2 border-b-2 border-transparent text-gray-500" data-subtab="gps">GPS上报</button>
+                            <button onclick="switchSubTab('summary')" class="sub-tab-btn text-sm pb-2 border-b-2 border-transparent text-gray-500" data-subtab="summary">运动总结</button>
+                        </nav>
+                    </div>
+                    
+                    <div id="subtab-status" class="subtab-content space-y-4">
+                        <div><label class="block text-sm font-medium mb-1">运动类型</label>
+                            <select id="sportType" class="w-full border rounded px-3 py-2 disabled:bg-gray-100">
+                                <option value="0">室内跑步机</option>
+                                <option value="1" selected>户外跑步</option>
+                                <option value="2">户外健走</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-4 gap-2">
+                            <button onclick="setSportState(1)" class="py-3 border rounded hover:bg-gray-50 flex flex-col items-center"><svg class="w-5 h-5 mb-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span class="text-xs">开始</span></button>
+                            <button onclick="setSportState(2)" class="py-3 border rounded hover:bg-gray-50 flex flex-col items-center"><svg class="w-5 h-5 mb-1 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span class="text-xs">暂停</span></button>
+                            <button onclick="setSportState(3)" class="py-3 border rounded hover:bg-gray-50 flex flex-col items-center"><svg class="w-5 h-5 mb-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg><span class="text-xs">恢复</span></button>
+                            <button onclick="setSportState(4)" class="py-3 border rounded hover:bg-gray-50 flex flex-col items-center"><svg class="w-5 h-5 mb-1 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg><span class="text-xs">结束</span></button>
+                        </div>
+                        <button onclick="getSportState()" class="w-full border px-4 py-2 rounded hover:bg-gray-50">获取运动状态</button>
+                    </div>
+                    
+                    <div id="subtab-gps" class="subtab-content space-y-4 hidden">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="block text-sm font-medium mb-1">经度</label><input type="number" id="longitude" value="114.061219" step="0.000001" class="w-full border rounded px-3 py-2 disabled:bg-gray-100"></div>
+                            <div><label class="block text-sm font-medium mb-1">纬度</label><input type="number" id="latitude" value="22.604802" step="0.000001" class="w-full border rounded px-3 py-2 disabled:bg-gray-100"></div>
+                        </div>
+                        <button onclick="reportGps()" class="w-full bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:bg-gray-300">上报GPS坐标</button>
+                    </div>
+                    
+                    <div id="subtab-summary" class="subtab-content space-y-4 hidden">
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="getSportSummary()" class="border px-4 py-2 rounded hover:bg-gray-50">获取运动总结</button>
+                            <button onclick="getSportSegment()" class="border px-4 py-2 rounded hover:bg-gray-50">获取运动分段</button>
+                            <button onclick="getSportCount()" class="border px-4 py-2 rounded hover:bg-gray-50">获取运动条数</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 日志面板 -->
+            <div class="bg-white rounded-lg border shadow-sm">
+                <div class="px-4 py-3 border-b flex justify-between items-center">
+                    <h2 class="font-semibold">通信日志</h2>
+                    <button onclick="clearLogs()" class="text-sm text-gray-500 hover:text-gray-700">清空</button>
+                </div>
+                <div id="logPanel" class="p-3 h-64 overflow-y-auto bg-gray-900 text-gray-100 font-mono text-sm"></div>
+            </div>
+        </main>
+
+        <footer class="bg-white border-t px-4 py-4">
+            <div class="flex justify-between text-sm text-gray-500">
+                <span>桌面版 - WinRT 蓝牙接口</span>
+                <span>仅支持 Windows 10+</span>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        let connected = false;
+        let ws = null;
+        let logs = [];
+        let hrMeasuring = false, spo2Measuring = false;
+        let hrChartData = [], spo2ChartData = [];
+        let hrChart, spo2Chart;
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            initTimezoneSelect();
+            initHrZones();
+            initCharts();
+            initWebSocket();
+            updateCurrentTime();
+            setInterval(updateCurrentTime, 1000);
+            
+            document.getElementById('calorieTarget').addEventListener('input', e => {
+                document.getElementById('calorieDisplay').textContent = Math.round(e.target.value / 1000);
+            });
+            
+            // 设置今天的日期
+            document.getElementById('dailyDate').valueAsDate = new Date();
+        });
+
+        function initTimezoneSelect() {
+            const select = document.getElementById('timezone');
+            for (let i = -12; i <= 12; i++) {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = i >= 0 ? `东${i}区` : `西${Math.abs(i)}区`;
+                if (i === 8) opt.selected = true;
+                select.appendChild(opt);
+            }
+        }
+
+        function initHrZones() {
+            const container = document.getElementById('hrZones');
+            const defaultZones = [{min:75,max:85},{min:85,max:95},{min:95,max:105},{min:105,max:115},{min:115,max:125}];
+            container.innerHTML = defaultZones.map((z, i) => `
+                <div class="flex items-center gap-2">
+                    <span class="text-sm w-16">区间 ${i+1}</span>
+                    <input type="number" class="hr-zone-min flex-1 border rounded px-2 py-1" value="${z.min}">
+                    <span class="text-gray-400">-</span>
+                    <input type="number" class="hr-zone-max flex-1 border rounded px-2 py-1" value="${z.max}">
+                    <span class="text-sm text-gray-500">bpm</span>
+                </div>
+            `).join('');
+        }
+
+        function initCharts() {
+            const hrCtx = document.getElementById('hrChart').getContext('2d');
+            const spo2Ctx = document.getElementById('spo2Chart').getContext('2d');
+            
+            hrChart = new Chart(hrCtx, {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: '心率', data: [], borderColor: '#ef4444', tension: 0.3 }] },
+                options: { responsive: true, scales: { y: { min: 40, max: 200 } }, plugins: { legend: { display: false } } }
+            });
+            
+            spo2Chart = new Chart(spo2Ctx, {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: '血氧', data: [], borderColor: '#3b82f6', tension: 0.3 }] },
+                options: { responsive: true, scales: { y: { min: 80, max: 100 } }, plugins: { legend: { display: false } } }
+            });
+        }
+
+        function initWebSocket() {
+            ws = new WebSocket(`ws://${location.host}/ws`);
+            ws.onmessage = e => {
+                const msg = JSON.parse(e.data);
+                if (msg.type === 'log') addLog(msg.data);
+                else if (msg.type === 'data') handleData(msg.data);
+            };
+            ws.onclose = () => setTimeout(initWebSocket, 3000);
+        }
+
+        function addLog(log) {
+            logs.push(log);
+            const panel = document.getElementById('logPanel');
+            const div = document.createElement('div');
+            div.className = `log-${log.type}`;
+            div.textContent = `[${log.timestamp}][${log.type.toUpperCase()}] ${log.message}`;
+            panel.appendChild(div);
+            panel.scrollTop = panel.scrollHeight;
+        }
+
+        function clearLogs() { logs = []; document.getElementById('logPanel').innerHTML = ''; }
+
+        function updateCurrentTime() {
+            document.getElementById('currentTime').textContent = new Date().toLocaleString();
+        }
+
+        function updateStatus(isConnected, deviceName = '') {
+            connected = isConnected;
+            const dot = document.getElementById('statusDot');
+            const text = document.getElementById('statusText');
+            const badge = document.getElementById('connectionBadge');
+            
+            if (isConnected) {
+                dot.className = 'w-3 h-3 rounded-full bg-green-500';
+                text.textContent = deviceName || '已连接';
+                badge.innerHTML = '<svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>已连接';
+                badge.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800';
+                document.getElementById('deviceName').textContent = deviceName;
+                document.getElementById('disconnectBtn').classList.remove('hidden');
+                document.getElementById('scanBtn').classList.add('hidden');
+                document.getElementById('connectHint').classList.add('hidden');
+                document.getElementById('deviceList').classList.add('hidden');
+            } else {
+                dot.className = 'w-3 h-3 rounded-full bg-gray-300';
+                text.textContent = '未连接';
+                badge.innerHTML = '<svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414"/></svg>未连接';
+                badge.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800';
+                document.getElementById('deviceName').textContent = '';
+                document.getElementById('disconnectBtn').classList.add('hidden');
+                document.getElementById('scanBtn').classList.remove('hidden');
+                document.getElementById('connectHint').classList.remove('hidden');
+            }
+            
+            // 禁用/启用输入
+            document.querySelectorAll('input, select, button').forEach(el => {
+                if (!el.id?.includes('scan') && !el.id?.includes('disconnect')) {
+                    el.disabled = !isConnected;
+                }
+            });
+        }
+
+        // 标签页切换
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => { el.classList.remove('tab-active'); el.classList.add('tab-inactive'); });
+            document.getElementById(`tab-${tab}`).classList.remove('hidden');
+            document.querySelector(`[data-tab="${tab}"]`).classList.add('tab-active');
+            document.querySelector(`[data-tab="${tab}"]`).classList.remove('tab-inactive');
+        }
+
+        function switchSubTab(subtab) {
+            const parent = document.querySelector('.tab-content:not(.hidden)');
+            parent.querySelectorAll('.subtab-content').forEach(el => el.classList.add('hidden'));
+            parent.querySelectorAll('.sub-tab-btn').forEach(el => { el.classList.remove('border-blue-600', 'text-blue-600'); el.classList.add('border-transparent', 'text-gray-500'); });
+            document.getElementById(`subtab-${subtab}`).classList.remove('hidden');
+            parent.querySelector(`[data-subtab="${subtab}"]`).classList.add('border-blue-600', 'text-blue-600');
+            parent.querySelector(`[data-subtab="${subtab}"]`).classList.remove('border-transparent', 'text-gray-500');
+        }
+
+        // API 调用
+        async function apiPost(url, params = {}) {
+            const query = new URLSearchParams(params).toString();
+            try {
+                const res = await fetch(`${url}?${query}`, { method: 'POST' });
+                return res.json();
+            } catch (e) { return { success: false, error: e.message }; }
+        }
+
+        // 扫描设备
+        async function scanDevices() {
+            const btn = document.getElementById('scanBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<svg class="w-4 h-4 mr-1 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>扫描中...';
+            
+            const res = await fetch('/api/scan');
+            const data = await res.json();
+            
+            btn.disabled = false;
+            btn.innerHTML = '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>扫描设备';
+            
+            if (data.success && data.devices.length > 0) {
+                const container = document.getElementById('deviceItems');
+                container.innerHTML = data.devices.map(d => `
+                    <div class="border rounded p-3 cursor-pointer hover:bg-blue-50" onclick="connect('${d.address}')">
+                        <div class="font-medium">${d.name}</div>
+                        <div class="text-xs text-gray-500 mt-1 font-mono">${d.address}</div>
+                    </div>
+                `).join('');
+                document.getElementById('deviceList').classList.remove('hidden');
+            } else {
+                alert(data.success ? '未找到设备' : data.error);
+            }
+        }
+
+        // 连接设备
+        async function connect(address) {
+            document.getElementById('deviceList').innerHTML = '<div class="text-center text-gray-500 py-4">正在连接...</div>';
+            const res = await apiPost('/api/connect', { address });
+            if (res.success) {
+                updateStatus(true, res.device_name);
+            } else {
+                document.getElementById('deviceList').innerHTML = '<div class="text-center text-red-500 py-4">连接失败</div>';
+            }
+        }
+
+        async function disconnect() {
+            await apiPost('/api/disconnect');
+            updateStatus(false);
+        }
+
+        // 设备信息 API
+        async function setPersonalInfo() {
+            await apiPost('/api/personal_info', {
+                height: document.getElementById('height').value,
+                weight: document.getElementById('weight').value,
+                age: document.getElementById('age').value,
+                gender: document.getElementById('gender').value
+            });
+        }
+
+        async function getPersonalInfo() { await apiPost('/api/get_personal_info'); }
+
+        async function syncTime() { await apiPost('/api/sync_time', { timezone: document.getElementById('timezone').value }); }
+
+        async function setHeartRateZones() {
+            const mins = document.querySelectorAll('.hr-zone-min');
+            const maxs = document.querySelectorAll('.hr-zone-max');
+            const zones = [];
+            mins.forEach((m, i) => zones.push({ min: parseInt(m.value), max: parseInt(maxs[i].value) }));
+            await apiPost('/api/heart_rate_zones', { zones: JSON.stringify(zones) });
+        }
+
+        async function setLactateZone() {
+            await apiPost('/api/lactate_zone', {
+                enabled: document.getElementById('lactateEnabled').value === '1',
+                hr_min: document.getElementById('lactateHrMin').value,
+                hr_max: document.getElementById('lactateHrMax').value,
+                pace_min: document.getElementById('lactatePaceMin').value,
+                pace_max: document.getElementById('lactatePaceMax').value
+            });
+        }
+
+        // 运动目标 API
+        async function setDistanceTarget() { await apiPost('/api/distance_target', { distance: document.getElementById('distanceTarget').value }); }
+        async function getDistanceTarget() { await apiPost('/api/distance_target', { distance: 0, get: true }); }
+        async function setCalorieTarget() { await apiPost('/api/calorie_target', { calories: document.getElementById('calorieTarget').value }); }
+        async function getCalorieTarget() { await apiPost('/api/calorie_target', { calories: 0, get: true }); }
+        async function setStepTarget() { await apiPost('/api/step_target', { steps: document.getElementById('stepTarget').value }); }
+        async function getStepTarget() { await apiPost('/api/step_target', { steps: 0, get: true }); }
+        async function getDailyData() {
+            const d = document.getElementById('dailyDate').valueAsDate;
+            await apiPost('/api/daily_data', { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() });
+        }
+
+        // 健康检测 API
+        async function setHeartRateMonitor() {
+            await apiPost('/api/heart_rate_monitor', {
+                enabled: document.getElementById('hrMonitorEnabled').checked,
+                interval: document.getElementById('hrMonitorInterval').value
+            });
+        }
+        async function getHeartRateMonitor() { await apiPost('/api/heart_rate_monitor', { enabled: true, interval: 10, get: true }); }
+        
+        async function setSpo2Monitor() {
+            await apiPost('/api/spo2_monitor', {
+                enabled: document.getElementById('spo2MonitorEnabled').checked,
+                interval: document.getElementById('spo2MonitorInterval').value
+            });
+        }
+        async function getSpo2Monitor() { await apiPost('/api/spo2_monitor', { enabled: true, interval: 10, get: true }); }
+
+        async function toggleHrMeasure() {
+            hrMeasuring = !hrMeasuring;
+            document.getElementById('hrMeasureBtn').textContent = hrMeasuring ? '停止测量' : '开始测量';
+            document.getElementById('hrMeasureBtn').className = hrMeasuring ? 'w-full bg-gray-600 text-white px-2 py-1.5 rounded text-sm' : 'w-full bg-red-600 text-white px-2 py-1.5 rounded text-sm';
+            await apiPost('/api/heart_rate_measure', { start: hrMeasuring });
+        }
+
+        async function toggleSpo2Measure() {
+            spo2Measuring = !spo2Measuring;
+            document.getElementById('spo2MeasureBtn').textContent = spo2Measuring ? '停止测量' : '开始测量';
+            document.getElementById('spo2MeasureBtn').className = spo2Measuring ? 'w-full bg-gray-600 text-white px-2 py-1.5 rounded text-sm' : 'w-full bg-blue-600 text-white px-2 py-1.5 rounded text-sm';
+            await apiPost('/api/spo2_measure', { start: spo2Measuring });
+        }
+
+        function clearChartData() {
+            hrChartData = []; spo2ChartData = [];
+            hrChart.data.labels = []; hrChart.data.datasets[0].data = [];
+            spo2Chart.data.labels = []; spo2Chart.data.datasets[0].data = [];
+            hrChart.update(); spo2Chart.update();
+        }
+
+        // 运动健康 API
+        async function setSportState(status) {
+            await apiPost('/api/sport_state', { status, sport_type: document.getElementById('sportType').value });
+        }
+        async function getSportState() { await apiPost('/api/sport_state', { status: 0, sport_type: 0, get: true }); }
+        async function reportGps() {
+            await apiPost('/api/report_gps', {
+                longitude: document.getElementById('longitude').value,
+                latitude: document.getElementById('latitude').value
+            });
+        }
+        async function getSportSummary() { await apiPost('/api/sport_summary'); }
+        async function getSportSegment() { await apiPost('/api/sport_segment'); }
+        async function getSportCount() { await apiPost('/api/sport_count'); }
+
+        // 协议解析函数
+        function getFieldTypeName(fieldType) {
+            const names = { 0xBA: '设备信息同步', 0xBB: '运动目标', 0xBC: '健康检测', 0xBD: '运动健康' };
+            return names[fieldType] || `未知(0x${fieldType.toString(16)})`;
+        }
+
+        function getTypeIdName(fieldType, typeId) {
+            const typeNames = {
+                'BA': { 0x00: '个人信息', 0x01: '时间同步', 0x02: '心率区间', 0x03: '乳酸区间' },
+                'BB': { 0x00: '距离目标', 0x01: '消耗目标', 0x02: '步数目标', 0x03: '每日数据' },
+                'BC': { 0x00: '血氧监测', 0x01: '心率监测', 0x02: '颈椎健康监测', 0x03: '跌倒监测', 
+                        0x04: '血氧数据', 0x05: '心率数据', 0x06: '颈椎健康数据', 0x07: '紧急联系人',
+                        0x08: '血氧测量', 0x09: '心率测量', 0x0A: '久坐提醒', 0x0B: '心率广播' },
+                'BD': { 0x00: '运动状态', 0x01: 'GPS上报', 0x02: '实时运动数据', 0x03: '运动总结',
+                        0x04: '运动分段', 0x05: '数据接收完成', 0x06: '运动条数查询' }
+            };
+            const key = fieldType.toString(16).toUpperCase();
+            return typeNames[key]?.[typeId] || `未知(0x${typeId.toString(16)})`;
+        }
+
+        function parse3Byte(data, offset) {
+            return (data[offset] << 16) | (data[offset + 1] << 8) | data[offset + 2];
+        }
+
+        function parseResponse(data) {
+            if (data.length < 4) return null;
+            const fieldType = data[1];
+            const typeId = data[3];
+            const result = {
+                fieldType: getFieldTypeName(fieldType),
+                typeName: getTypeIdName(fieldType, typeId),
+                rawData: data.map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' '),
+                data: {}
+            };
+
+            // 解析具体数据
+            if (fieldType === 0xBA) {
+                if (typeId === 0x00 && data.length >= 10) { // 个人信息
+                    const weight = parse3Byte(data, 5);
+                    result.data = { height: data[4], weight: (weight / 1000).toFixed(1), age: data[8], gender: data[9] === 1 ? '男' : data[9] === 2 ? '女' : '保密' };
+                } else if (typeId === 0x01) { // 时间同步
+                    result.data = { result: data[4] === 0 ? '成功' : '失败' };
+                }
+            } else if (fieldType === 0xBB) {
+                if (typeId === 0x00 && data.length >= 7) { // 距离目标
+                    result.data = { distance: parse3Byte(data, 4), distanceKm: (parse3Byte(data, 4) / 1000).toFixed(2) + ' km' };
+                } else if (typeId === 0x01 && data.length >= 7) { // 消耗目标
+                    result.data = { calories: parse3Byte(data, 4), caloriesKcal: Math.round(parse3Byte(data, 4) / 1000) + ' kcal' };
+                } else if (typeId === 0x02 && data.length >= 7) { // 步数目标
+                    result.data = { steps: parse3Byte(data, 4) };
+                }
+            } else if (fieldType === 0xBC) {
+                if (typeId === 0x00 || typeId === 0x01) { // 血氧/心率监测
+                    result.data = { enabled: data[4] === 0, state: data[4] === 0 ? '开启' : '关闭', interval: data[5] + ' 分钟' };
+                } else if (typeId === 0x04) { // 血氧数据
+                    result.data = { hour: data[4], minute: data[5], value: data[6] + '%' };
+                } else if (typeId === 0x05) { // 心率数据
+                    result.data = { hour: data[4], minute: data[5], value: data[6] + ' bpm' };
+                } else if (typeId === 0x08 || typeId === 0x09) { // 血氧/心率测量
+                    result.data = { state: data[4] === 1 ? '测量中' : '已停止' };
+                }
+            }
+
+            return result;
+        }
+
+        function showResponse(parsed) {
+            if (!parsed) return;
+            const panel = document.getElementById('responsePanel');
+            const title = document.getElementById('responseTitle');
+            const content = document.getElementById('responseContent');
+            
+            title.textContent = `${parsed.fieldType} - ${parsed.typeName}`;
+            content.textContent = `原始数据: ${parsed.rawData}\n\n解析结果:\n${JSON.stringify(parsed.data, null, 2)}`;
+            panel.classList.remove('hidden');
+        }
+
+        // 处理接收数据
+        function handleData(data) {
+            if (data.length < 4) return;
+            const fieldType = data[1];
+            const typeId = data[3];
+            
+            // 解析并显示响应
+            const parsed = parseResponse(data);
+            if (parsed) showResponse(parsed);
+            
+            // 心率数据 - 更新图表
+            if (fieldType === 0xBC && typeId === 0x05) {
+                const value = data[6];
+                const time = new Date().toLocaleTimeString();
+                hrChartData.push(value);
+                if (hrChartData.length > 50) hrChartData.shift();
+                hrChart.data.labels = hrChartData.map((_, i) => i);
+                hrChart.data.datasets[0].data = hrChartData;
+                hrChart.update();
+            }
+            
+            // 血氧数据 - 更新图表
+            if (fieldType === 0xBC && typeId === 0x04) {
+                const value = data[6];
+                spo2ChartData.push(value);
+                if (spo2ChartData.length > 50) spo2ChartData.shift();
+                spo2Chart.data.labels = spo2ChartData.map((_, i) => i);
+                spo2Chart.data.datasets[0].data = spo2ChartData;
+                spo2Chart.update();
+            }
+        }
+
+        function closeResponse() {
+            document.getElementById('responsePanel').classList.add('hidden');
+        }
+
+        // 定时检查状态
+        setInterval(async () => {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                updateStatus(data.connected, data.device_name);
+            } catch (e) {}
+        }, 5000);
+    </script>
+</body>
+</html>

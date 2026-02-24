@@ -1,0 +1,13 @@
+# Sanag 蓝牙工具 - 桌面版依赖
+# Python 3.8+ required
+
+# Web 框架
+fastapi>=0.100.0
+uvicorn>=0.23.0
+websockets>=11.0
+
+# Windows RT 蓝牙 API
+winsdk>=1.0.0b10
+
+# 可选：更好的异步支持
+anyio>=3.7.0
