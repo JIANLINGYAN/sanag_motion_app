@@ -49,6 +49,9 @@ export const TYPE_ID = {
   NECK_SENSOR_CALIBRATION: 0x0d,
   NECK_STRETCH_REMINDER: 0x0e,
   SYNC_LAST_7_DAYS_HEALTH: 0x0f,
+  HEART_RATE_HIGH_ALERT: 0x10,
+  HEART_RATE_LOW_ALERT: 0x11,
+  SPO2_LOW_ALERT: 0x12,
 
   // 0xBD 类型标识
   SPORT_STATUS: 0x00,
@@ -291,4 +294,22 @@ export interface BluetoothDeviceInfo {
   service: BluetoothRemoteGATTService;
   writeCharacteristic: BluetoothRemoteGATTCharacteristic;
   notifyCharacteristic: BluetoothRemoteGATTCharacteristic;
+}
+
+// 心率过高提醒设置
+export interface HeartRateHighAlert {
+  enabled: boolean;
+  threshold: number; // 默认190, 可选150/160/170/180/190/200
+}
+
+// 心率过低提醒设置
+export interface HeartRateLowAlert {
+  enabled: boolean;
+  threshold: number; // 默认40, 可选40/45/50
+}
+
+// 血氧过低提醒设置
+export interface SpO2LowAlert {
+  enabled: boolean;
+  threshold: number; // 默认90, 可选80/85/90
 }

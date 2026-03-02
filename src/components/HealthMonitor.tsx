@@ -34,12 +34,18 @@ export function HealthMonitor({ disabled, heartRateData, spo2Data, onClearHealth
 
   // 传感器设置
   const [neckWearDetection, setNeckWearDetection] = useState(true);
+  const [neckStretchEnabled, setNeckStretchEnabled] = useState(true);
   const [neckStretchInterval, setNeckStretchInterval] = useState(30);
   const [calibrationStep, setCalibrationStep] = useState(0);
 
   // 测量状态
   const [spo2Measuring, setSpo2Measuring] = useState(false);
   const [hrMeasuring, setHrMeasuring] = useState(false);
+
+  // 提醒设置
+  const [hrHighAlert, setHrHighAlert] = useState({ enabled: true, threshold: 190 });
+  const [hrLowAlert, setHrLowAlert] = useState({ enabled: true, threshold: 40 });
+  const [spo2LowAlert, setSpo2LowAlert] = useState({ enabled: true, threshold: 90 });
 
   // 紧急联系人
   const [contact, setContact] = useState<EmergencyContact>({
@@ -142,7 +148,7 @@ export function HealthMonitor({ disabled, heartRateData, spo2Data, onClearHealth
 
   // 颈椎舒展提醒
   const handleSetNeckStretchReminder = async () => {
-    await bluetoothService.setNeckStretchReminder(neckStretchInterval);
+    await bluetoothService.setNeckStretchReminder({ enabled: neckStretchEnabled, interval: neckStretchInterval });
   };
   const handleGetNeckStretchReminder = async () => {
     await bluetoothService.getNeckStretchReminder();
@@ -151,6 +157,30 @@ export function HealthMonitor({ disabled, heartRateData, spo2Data, onClearHealth
   // 同步最近7天健康数据
   const handleSyncLast7DaysHealth = async () => {
     if (date) await bluetoothService.syncLast7DaysHealth(date);
+  };
+
+  // 心率过高提醒
+  const handleSetHeartRateHighAlert = async () => {
+    await bluetoothService.setHeartRateHighAlert(hrHighAlert);
+  };
+  const handleGetHeartRateHighAlert = async () => {
+    await bluetoothService.getHeartRateHighAlert();
+  };
+
+  // 心率过低提醒
+  const handleSetHeartRateLowAlert = async () => {
+    await bluetoothService.setHeartRateLowAlert(hrLowAlert);
+  };
+  const handleGetHeartRateLowAlert = async () => {
+    await bluetoothService.getHeartRateLowAlert();
+  };
+
+  // 血氧过低提醒
+  const handleSetSpO2LowAlert = async () => {
+    await bluetoothService.setSpO2LowAlert(spo2LowAlert);
+  };
+  const handleGetSpO2LowAlert = async () => {
+    await bluetoothService.getSpO2LowAlert();
   };
 
   return (
@@ -363,6 +393,14 @@ export function HealthMonitor({ disabled, heartRateData, spo2Data, onClearHealth
               </div>
               <div className="border-t pt-4">
                 <Label className="mb-2 block">颈椎舒展提醒设置</Label>
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-sm">提醒开关</Label>
+                  <Switch
+                    checked={neckStretchEnabled}
+                    onCheckedChange={setNeckStretchEnabled}
+                    disabled={disabled}
+                  />
+                </div>
                 <div className="flex items-center gap-2 mb-2">
                   <Input
                     type="number"
@@ -604,6 +642,123 @@ export function HealthMonitor({ disabled, heartRateData, spo2Data, onClearHealth
                     设置
                   </Button>
                   <Button onClick={handleGetHeartRateBroadcast} disabled={disabled} variant="outline" size="sm" className="flex-1">
+                    获取
+                  </Button>
+                </div>
+              </div>
+
+              {/* 心率过高提醒 */}
+              <div className="border p-4 rounded-lg border-red-200 bg-red-50/30">
+                <h4 className="font-medium mb-3 text-red-900">心率过高提醒</h4>
+                <div className="flex items-center justify-between mb-2">
+                  <Label>提醒开关</Label>
+                  <Switch
+                    checked={hrHighAlert.enabled}
+                    onCheckedChange={(checked) =>
+                      setHrHighAlert({ ...hrHighAlert, enabled: checked })
+                    }
+                    disabled={disabled}
+                  />
+                </div>
+                <div className="space-y-2 mb-3">
+                  <Label>阈值 (bpm)</Label>
+                  <select
+                    value={hrHighAlert.threshold}
+                    onChange={(e) =>
+                      setHrHighAlert({ ...hrHighAlert, threshold: parseInt(e.target.value) })
+                    }
+                    disabled={disabled}
+                    className="w-full h-10 px-3 rounded-md border border-input bg-background"
+                  >
+                    <option value={150}>150</option>
+                    <option value={160}>160</option>
+                    <option value={170}>170</option>
+                    <option value={180}>180</option>
+                    <option value={190}>190 (默认)</option>
+                    <option value={200}>200</option>
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleSetHeartRateHighAlert} disabled={disabled} size="sm" className="flex-1 bg-red-500 hover:bg-red-600">
+                    设置
+                  </Button>
+                  <Button onClick={handleGetHeartRateHighAlert} disabled={disabled} variant="outline" size="sm" className="flex-1">
+                    获取
+                  </Button>
+                </div>
+              </div>
+
+              {/* 心率过低提醒 */}
+              <div className="border p-4 rounded-lg border-blue-200 bg-blue-50/30">
+                <h4 className="font-medium mb-3 text-blue-900">心率过低提醒</h4>
+                <div className="flex items-center justify-between mb-2">
+                  <Label>提醒开关</Label>
+                  <Switch
+                    checked={hrLowAlert.enabled}
+                    onCheckedChange={(checked) =>
+                      setHrLowAlert({ ...hrLowAlert, enabled: checked })
+                    }
+                    disabled={disabled}
+                  />
+                </div>
+                <div className="space-y-2 mb-3">
+                  <Label>阈值 (bpm)</Label>
+                  <select
+                    value={hrLowAlert.threshold}
+                    onChange={(e) =>
+                      setHrLowAlert({ ...hrLowAlert, threshold: parseInt(e.target.value) })
+                    }
+                    disabled={disabled}
+                    className="w-full h-10 px-3 rounded-md border border-input bg-background"
+                  >
+                    <option value={40}>40 (默认)</option>
+                    <option value={45}>45</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleSetHeartRateLowAlert} disabled={disabled} size="sm" className="flex-1 bg-blue-500 hover:bg-blue-600">
+                    设置
+                  </Button>
+                  <Button onClick={handleGetHeartRateLowAlert} disabled={disabled} variant="outline" size="sm" className="flex-1">
+                    获取
+                  </Button>
+                </div>
+              </div>
+
+              {/* 血氧过低提醒 */}
+              <div className="border p-4 rounded-lg border-cyan-200 bg-cyan-50/30">
+                <h4 className="font-medium mb-3 text-cyan-900">血氧过低提醒</h4>
+                <div className="flex items-center justify-between mb-2">
+                  <Label>提醒开关</Label>
+                  <Switch
+                    checked={spo2LowAlert.enabled}
+                    onCheckedChange={(checked) =>
+                      setSpo2LowAlert({ ...spo2LowAlert, enabled: checked })
+                    }
+                    disabled={disabled}
+                  />
+                </div>
+                <div className="space-y-2 mb-3">
+                  <Label>阈值 (%)</Label>
+                  <select
+                    value={spo2LowAlert.threshold}
+                    onChange={(e) =>
+                      setSpo2LowAlert({ ...spo2LowAlert, threshold: parseInt(e.target.value) })
+                    }
+                    disabled={disabled}
+                    className="w-full h-10 px-3 rounded-md border border-input bg-background"
+                  >
+                    <option value={80}>80</option>
+                    <option value={85}>85</option>
+                    <option value={90}>90 (默认)</option>
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleSetSpO2LowAlert} disabled={disabled} size="sm" className="flex-1 bg-cyan-500 hover:bg-cyan-600">
+                    设置
+                  </Button>
+                  <Button onClick={handleGetSpO2LowAlert} disabled={disabled} variant="outline" size="sm" className="flex-1">
                     获取
                   </Button>
                 </div>

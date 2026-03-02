@@ -55,6 +55,9 @@ TYPE_ID = {
     "SPO2_MONITOR": 0x00, "HEART_RATE_MONITOR": 0x01, "NECK_HEALTH_MONITOR": 0x02, "FALL_MONITOR": 0x03,
     "SPO2_DATA": 0x04, "HEART_RATE_DATA": 0x05, "NECK_HEALTH_DATA": 0x06, "EMERGENCY_CONTACT": 0x07,
     "SPO2_MEASURE": 0x08, "HEART_RATE_MEASURE": 0x09, "SEDENTARY_REMINDER": 0x0A, "HEART_RATE_BROADCAST": 0x0B,
+    "NECK_SENSOR_WEAR_DETECTION": 0x0C, "NECK_SENSOR_CALIBRATION": 0x0D, "NECK_STRETCH_REMINDER": 0x0E,
+    "SYNC_LAST_7_DAYS_HEALTH": 0x0F, "HEART_RATE_HIGH_ALERT": 0x10, "HEART_RATE_LOW_ALERT": 0x11,
+    "SPO2_LOW_ALERT": 0x12,
     "SPORT_STATUS": 0x00, "GPS_REPORT": 0x01, "REALTIME_SPORT_DATA": 0x02, "SPORT_SUMMARY": 0x03,
     "SPORT_SEGMENT": 0x04, "DATA_RECEIVED": 0x05, "SPORT_COUNT_QUERY": 0x06,
     "HEART_RATE_DETAIL": 0x07, "PACE_DETAIL": 0x08, "STEP_FREQ_DETAIL": 0x09, "GPS_DETAIL": 0x0A,
@@ -453,16 +456,37 @@ class BluetoothService:
         data = [0x0D, step]
         return await self.send_data(self.build_packet(FIELD_TYPE["HEALTH_MONITOR"], data))
     
-    async def set_neck_stretch_reminder(self, interval: int) -> bool:
-        data = [0x0E, interval]
+    async def set_neck_stretch_reminder(self, enabled: bool, interval: int) -> bool:
+        data = [TYPE_ID["NECK_STRETCH_REMINDER"], SWITCH_STATE["ON"] if enabled else SWITCH_STATE["OFF"], interval]
         return await self.send_data(self.build_packet(FIELD_TYPE["HEALTH_MONITOR"], data))
     
     async def get_neck_stretch_reminder(self) -> bool:
-        return await self.send_data(self.build_packet(FIELD_TYPE["HEALTH_MONITOR"], [0x0E, 0xFF]))
+        return await self.send_data(self.build_packet(FIELD_TYPE["HEALTH_MONITOR"], [TYPE_ID["NECK_STRETCH_REMINDER"], 0xFF]))
     
     async def sync_last_7_days_health(self, year: int, month: int, day: int) -> bool:
-        data = [0x0F, year % 100, month, day]
+        data = [TYPE_ID["SYNC_LAST_7_DAYS_HEALTH"], year % 100, month, day]
         return await self.send_data(self.build_packet(FIELD_TYPE["HEALTH_MONITOR"], data))
+    
+    async def set_heart_rate_high_alert(self, enabled: bool, threshold: int) -> bool:
+        data = [TYPE_ID["HEART_RATE_HIGH_ALERT"], SWITCH_STATE["ON"] if enabled else SWITCH_STATE["OFF"], threshold]
+        return await self.send_data(self.build_packet(FIELD_TYPE["HEALTH_MONITOR"], data))
+    
+    async def get_heart_rate_high_alert(self) -> bool:
+        return await self.send_data(self.build_packet(FIELD_TYPE["HEALTH_MONITOR"], [TYPE_ID["HEART_RATE_HIGH_ALERT"], 0xFF]))
+    
+    async def set_heart_rate_low_alert(self, enabled: bool, threshold: int) -> bool:
+        data = [TYPE_ID["HEART_RATE_LOW_ALERT"], SWITCH_STATE["ON"] if enabled else SWITCH_STATE["OFF"], threshold]
+        return await self.send_data(self.build_packet(FIELD_TYPE["HEALTH_MONITOR"], data))
+    
+    async def get_heart_rate_low_alert(self) -> bool:
+        return await self.send_data(self.build_packet(FIELD_TYPE["HEALTH_MONITOR"], [TYPE_ID["HEART_RATE_LOW_ALERT"], 0xFF]))
+    
+    async def set_spo2_low_alert(self, enabled: bool, threshold: int) -> bool:
+        data = [TYPE_ID["SPO2_LOW_ALERT"], SWITCH_STATE["ON"] if enabled else SWITCH_STATE["OFF"], threshold]
+        return await self.send_data(self.build_packet(FIELD_TYPE["HEALTH_MONITOR"], data))
+    
+    async def get_spo2_low_alert(self) -> bool:
+        return await self.send_data(self.build_packet(FIELD_TYPE["HEALTH_MONITOR"], [TYPE_ID["SPO2_LOW_ALERT"], 0xFF]))
 
 
 # ========== FastAPI 应用 ==========
@@ -683,15 +707,36 @@ async def api_neck_sensor_calibration(step: int):
 
 
 @app.post("/api/neck_stretch_reminder")
-async def api_set_neck_stretch_reminder(interval: int, get: bool = False):
+async def api_set_neck_stretch_reminder(enabled: bool, interval: int, get: bool = False):
     if get:
         return {"success": await bt_service.get_neck_stretch_reminder()}
-    return {"success": await bt_service.set_neck_stretch_reminder(interval)}
+    return {"success": await bt_service.set_neck_stretch_reminder(enabled, interval)}
 
 
 @app.post("/api/sync_last_7_days_health")
 async def api_sync_last_7_days_health(year: int, month: int, day: int):
     return {"success": await bt_service.sync_last_7_days_health(year, month, day)}
+
+
+@app.post("/api/heart_rate_high_alert")
+async def api_set_heart_rate_high_alert(enabled: bool, threshold: int, get: bool = False):
+    if get:
+        return {"success": await bt_service.get_heart_rate_high_alert()}
+    return {"success": await bt_service.set_heart_rate_high_alert(enabled, threshold)}
+
+
+@app.post("/api/heart_rate_low_alert")
+async def api_set_heart_rate_low_alert(enabled: bool, threshold: int, get: bool = False):
+    if get:
+        return {"success": await bt_service.get_heart_rate_low_alert()}
+    return {"success": await bt_service.set_heart_rate_low_alert(enabled, threshold)}
+
+
+@app.post("/api/spo2_low_alert")
+async def api_set_spo2_low_alert(enabled: bool, threshold: int, get: bool = False):
+    if get:
+        return {"success": await bt_service.get_spo2_low_alert()}
+    return {"success": await bt_service.set_spo2_low_alert(enabled, threshold)}
 
 
 @app.websocket("/ws")

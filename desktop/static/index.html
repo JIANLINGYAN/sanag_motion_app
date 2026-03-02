@@ -506,7 +506,16 @@
                                 <button onclick="getNeckHealthData()" class="w-full btn-secondary px-5 py-2.5 rounded-lg font-medium">获取颈椎健康数据</button>
                             </div>
                             <div class="border-t pt-5">
-                                <label class="block text-sm font-medium mb-3 text-gray-700">颈椎舒展提醒间隔 (分钟, 10-60)</label>
+                                <div class="bg-gradient-to-r from-teal-50 to-cyan-50 rounded-xl p-5 border border-teal-100 mb-4">
+                                    <div class="flex items-center justify-between">
+                                        <label class="text-sm font-semibold text-teal-900">颈椎舒展提醒开关</label>
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" id="neckStretchEnabled" checked class="sr-only peer">
+                                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-500"></div>
+                                        </label>
+                                    </div>
+                                </div>
+                                <label class="block text-sm font-medium mb-3 text-gray-700">提醒间隔 (分钟, 10-60)</label>
                                 <input type="number" id="neckStretchInterval" value="30" min="10" max="60" class="input-modern w-full rounded-lg px-4 py-2.5 mb-3">
                                 <div class="flex gap-3">
                                     <button onclick="setNeckStretchReminder()" class="btn-primary flex-1 text-white px-5 py-2.5 rounded-lg font-medium bg-gradient-to-r from-teal-500 to-cyan-500">设置舒展提醒</button>
@@ -643,6 +652,81 @@
                                 <div class="flex gap-3">
                                     <button onclick="setHeartRateBroadcast()" class="btn-primary flex-1 text-white px-4 py-2 rounded-lg text-sm font-medium bg-violet-500">设置</button>
                                     <button onclick="getHeartRateBroadcast()" class="btn-secondary flex-1 px-4 py-2 rounded-lg text-sm font-medium">获取</button>
+                                </div>
+                            </div>
+
+                            <!-- 心率过高提醒 -->
+                            <div class="bg-gradient-to-r from-red-50 to-rose-50 rounded-xl p-5 border border-red-100">
+                                <h4 class="font-semibold mb-4 text-red-900">心率过高提醒</h4>
+                                <div class="flex items-center justify-between mb-4">
+                                    <label class="text-sm text-red-800">提醒开关</label>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" id="hrHighAlertEnabled" checked class="sr-only peer">
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
+                                    </label>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="block text-sm font-medium mb-2 text-red-800">阈值 (bpm, 150-200)</label>
+                                    <select id="hrHighAlertThreshold" class="input-modern w-full rounded-lg px-4 py-2.5 bg-white/80">
+                                        <option value="150">150</option>
+                                        <option value="160">160</option>
+                                        <option value="170">170</option>
+                                        <option value="180">180</option>
+                                        <option value="190" selected>190 (默认)</option>
+                                        <option value="200">200</option>
+                                    </select>
+                                </div>
+                                <div class="flex gap-3">
+                                    <button onclick="setHeartRateHighAlert()" class="btn-primary flex-1 text-white px-4 py-2 rounded-lg text-sm font-medium bg-red-500">设置</button>
+                                    <button onclick="getHeartRateHighAlert()" class="btn-secondary flex-1 px-4 py-2 rounded-lg text-sm font-medium">获取</button>
+                                </div>
+                            </div>
+
+                            <!-- 心率过低提醒 -->
+                            <div class="bg-gradient-to-r from-blue-50 to-sky-50 rounded-xl p-5 border border-blue-100">
+                                <h4 class="font-semibold mb-4 text-blue-900">心率过低提醒</h4>
+                                <div class="flex items-center justify-between mb-4">
+                                    <label class="text-sm text-blue-800">提醒开关</label>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" id="hrLowAlertEnabled" checked class="sr-only peer">
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+                                    </label>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="block text-sm font-medium mb-2 text-blue-800">阈值 (bpm, 40-50)</label>
+                                    <select id="hrLowAlertThreshold" class="input-modern w-full rounded-lg px-4 py-2.5 bg-white/80">
+                                        <option value="40" selected>40 (默认)</option>
+                                        <option value="45">45</option>
+                                        <option value="50">50</option>
+                                    </select>
+                                </div>
+                                <div class="flex gap-3">
+                                    <button onclick="setHeartRateLowAlert()" class="btn-primary flex-1 text-white px-4 py-2 rounded-lg text-sm font-medium bg-blue-500">设置</button>
+                                    <button onclick="getHeartRateLowAlert()" class="btn-secondary flex-1 px-4 py-2 rounded-lg text-sm font-medium">获取</button>
+                                </div>
+                            </div>
+
+                            <!-- 血氧过低提醒 -->
+                            <div class="bg-gradient-to-r from-cyan-50 to-teal-50 rounded-xl p-5 border border-cyan-100">
+                                <h4 class="font-semibold mb-4 text-cyan-900">血氧过低提醒</h4>
+                                <div class="flex items-center justify-between mb-4">
+                                    <label class="text-sm text-cyan-800">提醒开关</label>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" id="spo2LowAlertEnabled" checked class="sr-only peer">
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-cyan-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
+                                    </label>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="block text-sm font-medium mb-2 text-cyan-800">阈值 (%, 80-90)</label>
+                                    <select id="spo2LowAlertThreshold" class="input-modern w-full rounded-lg px-4 py-2.5 bg-white/80">
+                                        <option value="80">80</option>
+                                        <option value="85">85</option>
+                                        <option value="90" selected>90 (默认)</option>
+                                    </select>
+                                </div>
+                                <div class="flex gap-3">
+                                    <button onclick="setSpO2LowAlert()" class="btn-primary flex-1 text-white px-4 py-2 rounded-lg text-sm font-medium bg-cyan-500">设置</button>
+                                    <button onclick="getSpO2LowAlert()" class="btn-secondary flex-1 px-4 py-2 rounded-lg text-sm font-medium">获取</button>
                                 </div>
                             </div>
                         </div>
@@ -1127,9 +1211,27 @@
 
         // 颈椎舒展提醒
         async function setNeckStretchReminder() {
-            await apiPost('/api/neck_stretch_reminder', { interval: document.getElementById('neckStretchInterval').value });
+            await apiPost('/api/neck_stretch_reminder', { enabled: document.getElementById('neckStretchEnabled').checked, interval: document.getElementById('neckStretchInterval').value });
         }
-        async function getNeckStretchReminder() { await apiPost('/api/neck_stretch_reminder', { interval: 30, get: true }); }
+        async function getNeckStretchReminder() { await apiPost('/api/neck_stretch_reminder', { enabled: true, interval: 30, get: true }); }
+
+        // 心率过高提醒
+        async function setHeartRateHighAlert() {
+            await apiPost('/api/heart_rate_high_alert', { enabled: document.getElementById('hrHighAlertEnabled').checked, threshold: document.getElementById('hrHighAlertThreshold').value });
+        }
+        async function getHeartRateHighAlert() { await apiPost('/api/heart_rate_high_alert', { enabled: true, threshold: 190, get: true }); }
+
+        // 心率过低提醒
+        async function setHeartRateLowAlert() {
+            await apiPost('/api/heart_rate_low_alert', { enabled: document.getElementById('hrLowAlertEnabled').checked, threshold: document.getElementById('hrLowAlertThreshold').value });
+        }
+        async function getHeartRateLowAlert() { await apiPost('/api/heart_rate_low_alert', { enabled: true, threshold: 40, get: true }); }
+
+        // 血氧过低提醒
+        async function setSpO2LowAlert() {
+            await apiPost('/api/spo2_low_alert', { enabled: document.getElementById('spo2LowAlertEnabled').checked, threshold: document.getElementById('spo2LowAlertThreshold').value });
+        }
+        async function getSpO2LowAlert() { await apiPost('/api/spo2_low_alert', { enabled: true, threshold: 90, get: true }); }
 
         // 同步最近7天健康数据
         async function syncLast7DaysHealth() {

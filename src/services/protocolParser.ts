@@ -78,6 +78,9 @@ function getTypeIdName(fieldType: number, typeId: number): string {
       case TYPE_ID.NECK_SENSOR_CALIBRATION: return '颈椎传感器校准';
       case TYPE_ID.NECK_STRETCH_REMINDER: return '颈椎舒展提醒';
       case TYPE_ID.SYNC_LAST_7_DAYS_HEALTH: return '同步最近7天健康数据';
+      case TYPE_ID.HEART_RATE_HIGH_ALERT: return '心率过高提醒';
+      case TYPE_ID.HEART_RATE_LOW_ALERT: return '心率过低提醒';
+      case TYPE_ID.SPO2_LOW_ALERT: return '血氧过低提醒';
     }
   } else if (fieldType === FIELD_TYPE.SPORT_HEALTH) {
     switch (typeId) {
@@ -418,10 +421,45 @@ function parseNeckSensorCalibration(data: Uint8Array): Record<string, unknown> {
 
 // 解析颈椎舒展提醒
 function parseNeckStretchReminder(data: Uint8Array): Record<string, unknown> {
-  if (data.length < 5) return { error: '数据长度不足' };
+  if (data.length < 6) return { error: '数据长度不足' };
   return {
-    interval: data[4],
-    intervalMinutes: `${data[4]} 分钟`,
+    enabled: data[4] === 0x00,
+    enabledText: data[4] === 0x00 ? '开启' : '关闭',
+    interval: data[5],
+    intervalMinutes: `${data[5]} 分钟`,
+  };
+}
+
+// 解析心率过高提醒
+function parseHeartRateHighAlert(data: Uint8Array): Record<string, unknown> {
+  if (data.length < 6) return { error: '数据长度不足' };
+  return {
+    enabled: data[4] === 0x00,
+    enabledText: data[4] === 0x00 ? '开启' : '关闭',
+    threshold: data[5],
+    thresholdText: `${data[5]} bpm`,
+  };
+}
+
+// 解析心率过低提醒
+function parseHeartRateLowAlert(data: Uint8Array): Record<string, unknown> {
+  if (data.length < 6) return { error: '数据长度不足' };
+  return {
+    enabled: data[4] === 0x00,
+    enabledText: data[4] === 0x00 ? '开启' : '关闭',
+    threshold: data[5],
+    thresholdText: `${data[5]} bpm`,
+  };
+}
+
+// 解析血氧过低提醒
+function parseSpO2LowAlert(data: Uint8Array): Record<string, unknown> {
+  if (data.length < 6) return { error: '数据长度不足' };
+  return {
+    enabled: data[4] === 0x00,
+    enabledText: data[4] === 0x00 ? '开启' : '关闭',
+    threshold: data[5],
+    thresholdText: `${data[5]}%`,
   };
 }
 
@@ -801,6 +839,15 @@ export function parseResponse(data: Uint8Array): ParsedResponse | null {
         break;
       case TYPE_ID.SYNC_LAST_7_DAYS_HEALTH:
         parsedData = parseSyncLast7DaysHealth(data);
+        break;
+      case TYPE_ID.HEART_RATE_HIGH_ALERT:
+        parsedData = parseHeartRateHighAlert(data);
+        break;
+      case TYPE_ID.HEART_RATE_LOW_ALERT:
+        parsedData = parseHeartRateLowAlert(data);
+        break;
+      case TYPE_ID.SPO2_LOW_ALERT:
+        parsedData = parseSpO2LowAlert(data);
         break;
     }
   } else if (fieldType === FIELD_TYPE.SPORT_HEALTH) {

@@ -644,10 +644,11 @@ class BluetoothService {
   }
 
   // 3.15 颈椎舒展提醒设置
-  async setNeckStretchReminder(interval: number): Promise<boolean> {
+  async setNeckStretchReminder(setting: { enabled: boolean; interval: number }): Promise<boolean> {
     const data = [
       TYPE_ID.NECK_STRETCH_REMINDER,
-      interval, // 10-60分钟
+      setting.enabled ? SWITCH_STATE.ON : SWITCH_STATE.OFF,
+      setting.interval, // 10-60分钟
     ];
     const packet = this.buildPacket(FIELD_TYPE.HEALTH_MONITOR, data);
     return this.sendData(packet);
@@ -668,6 +669,60 @@ class BluetoothService {
       date.getMonth() + 1,
       date.getDate(),
     ];
+    const packet = this.buildPacket(FIELD_TYPE.HEALTH_MONITOR, data);
+    return this.sendData(packet);
+  }
+
+  // 3.17 心率过高提醒设置
+  async setHeartRateHighAlert(setting: { enabled: boolean; threshold: number }): Promise<boolean> {
+    const data = [
+      TYPE_ID.HEART_RATE_HIGH_ALERT,
+      setting.enabled ? SWITCH_STATE.ON : SWITCH_STATE.OFF,
+      setting.threshold,
+    ];
+    const packet = this.buildPacket(FIELD_TYPE.HEALTH_MONITOR, data);
+    return this.sendData(packet);
+  }
+
+  // 3.17 获取心率过高提醒设置
+  async getHeartRateHighAlert(): Promise<boolean> {
+    const data = [TYPE_ID.HEART_RATE_HIGH_ALERT, 0xFF];
+    const packet = this.buildPacket(FIELD_TYPE.HEALTH_MONITOR, data);
+    return this.sendData(packet);
+  }
+
+  // 3.18 心率过低提醒设置
+  async setHeartRateLowAlert(setting: { enabled: boolean; threshold: number }): Promise<boolean> {
+    const data = [
+      TYPE_ID.HEART_RATE_LOW_ALERT,
+      setting.enabled ? SWITCH_STATE.ON : SWITCH_STATE.OFF,
+      setting.threshold,
+    ];
+    const packet = this.buildPacket(FIELD_TYPE.HEALTH_MONITOR, data);
+    return this.sendData(packet);
+  }
+
+  // 3.18 获取心率过低提醒设置
+  async getHeartRateLowAlert(): Promise<boolean> {
+    const data = [TYPE_ID.HEART_RATE_LOW_ALERT, 0xFF];
+    const packet = this.buildPacket(FIELD_TYPE.HEALTH_MONITOR, data);
+    return this.sendData(packet);
+  }
+
+  // 3.19 血氧过低提醒设置
+  async setSpO2LowAlert(setting: { enabled: boolean; threshold: number }): Promise<boolean> {
+    const data = [
+      TYPE_ID.SPO2_LOW_ALERT,
+      setting.enabled ? SWITCH_STATE.ON : SWITCH_STATE.OFF,
+      setting.threshold,
+    ];
+    const packet = this.buildPacket(FIELD_TYPE.HEALTH_MONITOR, data);
+    return this.sendData(packet);
+  }
+
+  // 3.19 获取血氧过低提醒设置
+  async getSpO2LowAlert(): Promise<boolean> {
+    const data = [TYPE_ID.SPO2_LOW_ALERT, 0xFF];
     const packet = this.buildPacket(FIELD_TYPE.HEALTH_MONITOR, data);
     return this.sendData(packet);
   }
