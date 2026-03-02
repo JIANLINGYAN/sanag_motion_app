@@ -8,7 +8,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
-import { CalendarIcon, Heart, Activity, Phone, AlertTriangle, PersonStanding, Radio, Trash2 } from 'lucide-react';
+import { CalendarIcon, Heart, Activity, Phone, AlertTriangle, PersonStanding, Radio, Trash2, Watch, Ruler, CalendarDays } from 'lucide-react';
 import { bluetoothService } from '@/services/bluetooth';
 import { type MonitorSetting, type EmergencyContact } from '@/types/bluetooth';
 import { Switch } from '@/components/ui/switch';
@@ -31,10 +31,11 @@ export function HealthMonitor({ disabled, heartRateData, spo2Data, onClearHealth
   const [fallSetting, setFallSetting] = useState<MonitorSetting>({ enabled: true });
   const [sedentarySetting, setSedentarySetting] = useState<MonitorSetting>({ enabled: true, interval: 5 });
   const [hrBroadcast, setHrBroadcast] = useState(true);
-  
-  // 测量状态
-  const [spo2Measuring, setSpo2Measuring] = useState(false);
-  const [hrMeasuring, setHrMeasuring] = useState(false);
+
+  // 传感器设置
+  const [neckWearDetection, setNeckWearDetection] = useState(true);
+  const [neckStretchInterval, setNeckStretchInterval] = useState(30);
+  const [calibrationStep, setCalibrationStep] = useState(0);
   
   // 紧急联系人
   const [contact, setContact] = useState<EmergencyContact>({
@@ -121,6 +122,33 @@ export function HealthMonitor({ disabled, heartRateData, spo2Data, onClearHealth
     await bluetoothService.getHeartRateBroadcast();
   };
 
+  // 颈椎传感器佩戴检测
+  const handleSetNeckWearDetection = async () => {
+    await bluetoothService.setNeckSensorWearDetection(neckWearDetection);
+  };
+  const handleGetNeckWearDetection = async () => {
+    await bluetoothService.getNeckSensorWearDetection();
+  };
+
+  // 颈椎传感器校准
+  const handleCalibrateNeckSensor = async (step: number) => {
+    setCalibrationStep(step);
+    await bluetoothService.setNeckSensorCalibration(step);
+  };
+
+  // 颈椎舒展提醒
+  const handleSetNeckStretchReminder = async () => {
+    await bluetoothService.setNeckStretchReminder(neckStretchInterval);
+  };
+  const handleGetNeckStretchReminder = async () => {
+    await bluetoothService.getNeckStretchReminder();
+  };
+
+  // 同步最近7天健康数据
+  const handleSyncLast7DaysHealth = async () => {
+    if (date) await bluetoothService.syncLast7DaysHealth(date);
+  };
+
   return (
     <Card>
       <CardHeader className="py-4">
@@ -147,12 +175,14 @@ export function HealthMonitor({ disabled, heartRateData, spo2Data, onClearHealth
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="spo2" className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="spo2">血氧</TabsTrigger>
             <TabsTrigger value="heartrate">心率</TabsTrigger>
             <TabsTrigger value="neck">颈椎</TabsTrigger>
             <TabsTrigger value="fall">跌倒</TabsTrigger>
             <TabsTrigger value="contact">联系人</TabsTrigger>
+            <TabsTrigger value="sensor">传感器</TabsTrigger>
+            <TabsTrigger value="sync">数据同步</TabsTrigger>
             <TabsTrigger value="other">其他</TabsTrigger>
           </TabsList>
 
@@ -327,6 +357,30 @@ export function HealthMonitor({ disabled, heartRateData, spo2Data, onClearHealth
                   获取颈椎健康数据
                 </Button>
               </div>
+              <div className="border-t pt-4">
+                <Label className="mb-2 block">颈椎舒展提醒设置</Label>
+                <div className="flex items-center gap-2 mb-2">
+                  <Input
+                    type="number"
+                    min={10}
+                    max={60}
+                    value={neckStretchInterval}
+                    onChange={(e) => setNeckStretchInterval(parseInt(e.target.value) || 30)}
+                    disabled={disabled}
+                    placeholder="10-60分钟"
+                  />
+                  <span className="text-sm text-gray-500 whitespace-nowrap">分钟</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleSetNeckStretchReminder} disabled={disabled} className="flex-1" size="sm">
+                    <Ruler className="h-4 w-4 mr-1" />
+                    设置舒展提醒
+                  </Button>
+                  <Button onClick={handleGetNeckStretchReminder} disabled={disabled} variant="outline" className="flex-1" size="sm">
+                    获取设置
+                  </Button>
+                </div>
+              </div>
             </div>
           </TabsContent>
 
@@ -388,6 +442,103 @@ export function HealthMonitor({ disabled, heartRateData, spo2Data, onClearHealth
                 <Button onClick={handleGetEmergencyContact} disabled={disabled} variant="outline" className="flex-1">
                   获取联系人
                 </Button>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* 传感器设置 */}
+          <TabsContent value="sensor" className="space-y-4">
+            <div className="space-y-4">
+              {/* 颈椎传感器佩戴检测 */}
+              <div className="border p-4 rounded-lg">
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <Watch className="h-4 w-4" />
+                  颈椎传感器佩戴检测
+                </h4>
+                <div className="flex items-center justify-between mb-3">
+                  <Label>检测开关</Label>
+                  <Switch
+                    checked={neckWearDetection}
+                    onCheckedChange={setNeckWearDetection}
+                    disabled={disabled}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleSetNeckWearDetection} disabled={disabled} size="sm" className="flex-1">
+                    设置
+                  </Button>
+                  <Button onClick={handleGetNeckWearDetection} disabled={disabled} variant="outline" size="sm" className="flex-1">
+                    获取
+                  </Button>
+                </div>
+              </div>
+
+              {/* 颈椎传感器校准 */}
+              <div className="border p-4 rounded-lg">
+                <h4 className="font-medium mb-3">颈椎传感器校准</h4>
+                <p className="text-sm text-gray-500 mb-3">请按顺序完成以下三步校准：</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <Button
+                    onClick={() => handleCalibrateNeckSensor(1)}
+                    disabled={disabled}
+                    variant={calibrationStep === 1 ? 'default' : 'outline'}
+                    size="sm"
+                  >
+                    第一步：直视
+                  </Button>
+                  <Button
+                    onClick={() => handleCalibrateNeckSensor(2)}
+                    disabled={disabled}
+                    variant={calibrationStep === 2 ? 'default' : 'outline'}
+                    size="sm"
+                  >
+                    第二步：低头
+                  </Button>
+                  <Button
+                    onClick={() => handleCalibrateNeckSensor(3)}
+                    disabled={disabled}
+                    variant={calibrationStep === 3 ? 'default' : 'outline'}
+                    size="sm"
+                  >
+                    第三步：回正
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* 数据同步 */}
+          <TabsContent value="sync" className="space-y-4">
+            <div className="space-y-4">
+              <div className="border p-4 rounded-lg">
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4" />
+                  同步最近7天健康数据
+                </h4>
+                <p className="text-sm text-gray-500 mb-3">选择日期，获取从该日期往前7天的所有健康数据</p>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start mb-3" disabled={disabled}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {date ? format(date, 'yyyy年MM月dd日', { locale: zhCN }) : '选择日期'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} />
+                  </PopoverContent>
+                </Popover>
+                <Button onClick={handleSyncLast7DaysHealth} disabled={disabled} className="w-full">
+                  开始同步7天数据
+                </Button>
+              </div>
+              <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+                <p className="font-medium">数据类型包括：</p>
+                <ul className="list-disc list-inside mt-1 space-y-1">
+                  <li>活动数据（步数、卡路里、距离）</li>
+                  <li>心率数据</li>
+                  <li>血氧数据</li>
+                  <li>颈椎健康数据</li>
+                </ul>
               </div>
             </div>
           </TabsContent>

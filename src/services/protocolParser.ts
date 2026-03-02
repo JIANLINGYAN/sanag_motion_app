@@ -74,6 +74,10 @@ function getTypeIdName(fieldType: number, typeId: number): string {
       case TYPE_ID.HEART_RATE_MEASURE: return '心率测量';
       case TYPE_ID.SEDENTARY_REMINDER: return '久坐提醒';
       case TYPE_ID.HEART_RATE_BROADCAST: return '心率广播';
+      case TYPE_ID.NECK_SENSOR_WEAR_DETECTION: return '颈椎传感器佩戴检测';
+      case TYPE_ID.NECK_SENSOR_CALIBRATION: return '颈椎传感器校准';
+      case TYPE_ID.NECK_STRETCH_REMINDER: return '颈椎舒展提醒';
+      case TYPE_ID.SYNC_LAST_7_DAYS_HEALTH: return '同步最近7天健康数据';
     }
   } else if (fieldType === FIELD_TYPE.SPORT_HEALTH) {
     switch (typeId) {
@@ -136,6 +140,7 @@ function getDataFlagName(flag: number): string {
     case DATA_FLAG.FIRST: return '第一条';
     case DATA_FLAG.MIDDLE: return '中间数据';
     case DATA_FLAG.LAST: return '结束数据';
+    case DATA_FLAG.COMPLETE: return '7天数据全部返回完成';
     case DATA_FLAG.ACTIVE_REPORT: return '主动上报';
     default: return `未知(0x${flag.toString(16)})`;
   }
@@ -384,6 +389,121 @@ function parseHeartRateBroadcast(data: Uint8Array): Record<string, unknown> {
     enabled: data[4] === SWITCH_STATE.ON,
     state: getSwitchName(data[4]),
   };
+}
+
+// 解析颈椎传感器佩戴检测
+function parseNeckSensorWearDetection(data: Uint8Array): Record<string, unknown> {
+  if (data.length < 5) return { error: '数据长度不足' };
+  return {
+    enabled: data[4] === SWITCH_STATE.ON,
+    state: getSwitchName(data[4]),
+  };
+}
+
+// 解析颈椎传感器校准
+function parseNeckSensorCalibration(data: Uint8Array): Record<string, unknown> {
+  if (data.length < 6) return { error: '数据长度不足' };
+  const stepNames: Record<number, string> = {
+    0x01: '第一步：直视',
+    0x02: '第二步：低头',
+    0x03: '第三步：回正',
+  };
+  return {
+    step: data[4],
+    stepName: stepNames[data[4]] || `未知步骤(0x${data[4].toString(16)})`,
+    result: data[5] === 0x00 ? '成功' : '失败',
+    resultCode: data[5],
+  };
+}
+
+// 解析颈椎舒展提醒
+function parseNeckStretchReminder(data: Uint8Array): Record<string, unknown> {
+  if (data.length < 5) return { error: '数据长度不足' };
+  return {
+    interval: data[4],
+    intervalMinutes: `${data[4]} 分钟`,
+  };
+}
+
+// 解析最近7天健康数据（更新版格式）
+function parseSyncLast7DaysHealth(data: Uint8Array): Record<string, unknown> {
+  if (data.length < 6) return { error: '数据长度不足' };
+
+  const dataTypeNames: Record<number, string> = {
+    0x01: '活动数据',
+    0x02: '心率数据',
+    0x03: '血氧数据',
+    0x04: '颈椎健康数据',
+  };
+
+  const dataType = data[4];
+  const result: Record<string, unknown> = {
+    dataType,
+    dataTypeName: dataTypeNames[dataType] || `未知类型(0x${data[4].toString(16)})`,
+  };
+
+  // 活动数据 (0x01) - 新格式：Data[5]是数据条数，每条12字节
+  if (dataType === 0x01 && data.length >= 7) {
+    const count = data[5];
+    const records = [];
+    // 每条活动数据：日(1) + 步数(3) + 卡路里(3) + 距离(3) = 12字节
+    for (let i = 0; i < count && 6 + i * 12 < data.length; i++) {
+      const offset = 6 + i * 12;
+      records.push({
+        day: data[offset],
+        steps: parse3ByteValue(data, offset + 1),
+        calories: parse3ByteValue(data, offset + 4),
+        distance: parse3ByteValue(data, offset + 7),
+      });
+    }
+    result.count = count;
+    result.records = records;
+  }
+
+  // 心率数据 (0x02) 或 血氧数据 (0x03) - 新格式
+  // Data[5]=日, Data[6]=时, Data[7]=分, Data[8]=值, Data[9]=数据标识
+  if ((dataType === 0x02 || dataType === 0x03) && data.length >= 10) {
+    const day = data[5];
+    const hour = data[6];
+    const minute = data[7];
+    const value = data[8];
+    const flag = data[9];
+    result.day = day;
+    result.time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+    result.value = dataType === 0x02 ? `${value} bpm` : `${value} %`;
+    result.flag = getDataFlagName(flag);
+    result.flagCode = flag;
+    result.isDayEnd = flag === 0x02; // 当天数据结束
+    result.isComplete = flag === 0x03; // 7天数据全部返回完成
+  }
+
+  // 颈椎健康数据 (0x04) - 新格式
+  // Data[5]=日, Data[6]=时, Data[7-10]=当天总佩戴时长, Data[11]=每小时佩戴时长
+  // Data[12-16]=5个level占比, Data[17]=数据标识
+  if (dataType === 0x04 && data.length >= 18) {
+    const day = data[5];
+    const hour = data[6];
+    const totalDuration = parse4ByteValue(data, 7); // 当天总佩戴时长
+    const hourlyDuration = data[11]; // 每小时佩戴时长
+    const flag = data[17];
+    
+    result.day = day;
+    result.hour = hour;
+    result.totalDuration = totalDuration;
+    result.totalDurationHours = (totalDuration / 60).toFixed(1);
+    result.hourlyDuration = hourlyDuration;
+    result.level1 = data[12];
+    result.level2 = data[13];
+    result.level3 = data[14];
+    result.level4 = data[15];
+    result.level5 = data[16];
+    result.flag = getDataFlagName(flag);
+    result.flagCode = flag;
+    result.isDayEnd = flag === 0x02; // 当天数据结束
+    result.isComplete = flag === 0x03; // 7天所有颈椎健康数据全部返回完成
+  }
+
+  return result;
 }
 
 // 解析运动状态
@@ -669,6 +789,18 @@ export function parseResponse(data: Uint8Array): ParsedResponse | null {
         break;
       case TYPE_ID.HEART_RATE_BROADCAST:
         parsedData = parseHeartRateBroadcast(data);
+        break;
+      case TYPE_ID.NECK_SENSOR_WEAR_DETECTION:
+        parsedData = parseNeckSensorWearDetection(data);
+        break;
+      case TYPE_ID.NECK_SENSOR_CALIBRATION:
+        parsedData = parseNeckSensorCalibration(data);
+        break;
+      case TYPE_ID.NECK_STRETCH_REMINDER:
+        parsedData = parseNeckStretchReminder(data);
+        break;
+      case TYPE_ID.SYNC_LAST_7_DAYS_HEALTH:
+        parsedData = parseSyncLast7DaysHealth(data);
         break;
     }
   } else if (fieldType === FIELD_TYPE.SPORT_HEALTH) {

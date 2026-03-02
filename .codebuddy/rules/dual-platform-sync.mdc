@@ -1,0 +1,46 @@
+---
+description: 
+alwaysApply: true
+enabled: true
+updatedAt: 2026-02-24T11:23:03.006Z
+provider: 
+---
+
+# 双端同步修改规则
+
+本项目包含两个版本：
+- **Web 端**：`src/` 目录下的 React + Web Bluetooth 应用
+- **桌面端**：`desktop/` 目录下的 Python + WinRT 应用
+
+## 修改原则
+
+当用户要求修改功能时，必须**同时检查并更新两端代码**：
+
+### 对应文件映射
+
+| 功能模块 | Web 端 | 桌面端 |
+|---------|--------|--------|
+| 蓝牙服务 | [src/services/bluetooth.ts](mdc:src/services/bluetooth.ts) | [desktop/server.py](mdc:desktop/server.py) |
+| 协议解析 | [src/services/protocolParser.ts](mdc:src/services/protocolParser.ts) | [desktop/static/index.html](mdc:desktop/static/index.html) 中的 `parseResponse()` |
+| 类型定义 | [src/types/bluetooth.ts](mdc:src/types/bluetooth.ts) | [desktop/server.py](mdc:desktop/server.py) 中的常量定义 |
+| 设备连接 | [src/components/DeviceConnection.tsx](mdc:src/components/DeviceConnection.tsx) | [desktop/static/index.html](mdc:desktop/static/index.html) 中的连接逻辑 |
+| 健康监测 | [src/components/HealthMonitor.tsx](mdc:src/components/HealthMonitor.tsx) | [desktop/static/index.html](mdc:desktop/static/index.html) 中的健康检测 Tab |
+
+### 修改检查清单
+
+每次修改功能时，需确认：
+
+1. **协议常量**：两端 `FIELD_TYPE`、`TYPE_ID` 等常量是否一致
+2. **数据包结构**：发送的数据包格式是否一致
+3. **解析逻辑**：响应数据的解析方式是否一致
+4. **UI 功能**：两端的界面功能是否对等
+
+### 常用命令
+
+```bash
+# Web 端开发
+npm run dev
+
+# 桌面端开发
+cd desktop && python server.py
+```

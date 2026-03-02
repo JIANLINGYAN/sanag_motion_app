@@ -616,6 +616,62 @@ class BluetoothService {
     return this.sendData(packet);
   }
 
+  // 3.13 颈椎传感器佩戴检测设置
+  async setNeckSensorWearDetection(enabled: boolean): Promise<boolean> {
+    const data = [
+      TYPE_ID.NECK_SENSOR_WEAR_DETECTION,
+      enabled ? SWITCH_STATE.ON : SWITCH_STATE.OFF,
+    ];
+    const packet = this.buildPacket(FIELD_TYPE.HEALTH_MONITOR, data);
+    return this.sendData(packet);
+  }
+
+  // 3.13 获取颈椎传感器佩戴检测设置
+  async getNeckSensorWearDetection(): Promise<boolean> {
+    const data = [TYPE_ID.NECK_SENSOR_WEAR_DETECTION, 0xFF];
+    const packet = this.buildPacket(FIELD_TYPE.HEALTH_MONITOR, data);
+    return this.sendData(packet);
+  }
+
+  // 3.14 颈椎传感器校准
+  async setNeckSensorCalibration(step: number): Promise<boolean> {
+    const data = [
+      TYPE_ID.NECK_SENSOR_CALIBRATION,
+      step, // 0x01: 直视, 0x02: 低头, 0x03: 回正
+    ];
+    const packet = this.buildPacket(FIELD_TYPE.HEALTH_MONITOR, data);
+    return this.sendData(packet);
+  }
+
+  // 3.15 颈椎舒展提醒设置
+  async setNeckStretchReminder(interval: number): Promise<boolean> {
+    const data = [
+      TYPE_ID.NECK_STRETCH_REMINDER,
+      interval, // 10-60分钟
+    ];
+    const packet = this.buildPacket(FIELD_TYPE.HEALTH_MONITOR, data);
+    return this.sendData(packet);
+  }
+
+  // 3.15 获取颈椎舒展提醒设置
+  async getNeckStretchReminder(): Promise<boolean> {
+    const data = [TYPE_ID.NECK_STRETCH_REMINDER, 0xFF];
+    const packet = this.buildPacket(FIELD_TYPE.HEALTH_MONITOR, data);
+    return this.sendData(packet);
+  }
+
+  // 3.16 同步最近7天健康数据
+  async syncLast7DaysHealth(date: Date): Promise<boolean> {
+    const data = [
+      TYPE_ID.SYNC_LAST_7_DAYS_HEALTH,
+      date.getFullYear() % 100,
+      date.getMonth() + 1,
+      date.getDate(),
+    ];
+    const packet = this.buildPacket(FIELD_TYPE.HEALTH_MONITOR, data);
+    return this.sendData(packet);
+  }
+
   // ========== 运动健康功能 (0xBD) ==========
 
   // 4.1 运动状态设置

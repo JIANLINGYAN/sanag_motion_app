@@ -440,6 +440,30 @@ class BluetoothService:
         data = [TYPE_ID["GPS_DETAIL"], year % 100, month, day, hour, minute, second]
         return await self.send_data(self.build_packet(FIELD_TYPE["SPORT_HEALTH"], data))
 
+    # ========== 新增健康检测方法 ==========
+    
+    async def set_neck_wear_detection(self, enabled: bool) -> bool:
+        data = [0x0C, SWITCH_STATE["ON"] if enabled else SWITCH_STATE["OFF"]]
+        return await self.send_data(self.build_packet(FIELD_TYPE["HEALTH_MONITOR"], data))
+    
+    async def get_neck_wear_detection(self) -> bool:
+        return await self.send_data(self.build_packet(FIELD_TYPE["HEALTH_MONITOR"], [0x0C, 0xFF]))
+    
+    async def calibrate_neck_sensor(self, step: int) -> bool:
+        data = [0x0D, step]
+        return await self.send_data(self.build_packet(FIELD_TYPE["HEALTH_MONITOR"], data))
+    
+    async def set_neck_stretch_reminder(self, interval: int) -> bool:
+        data = [0x0E, interval]
+        return await self.send_data(self.build_packet(FIELD_TYPE["HEALTH_MONITOR"], data))
+    
+    async def get_neck_stretch_reminder(self) -> bool:
+        return await self.send_data(self.build_packet(FIELD_TYPE["HEALTH_MONITOR"], [0x0E, 0xFF]))
+    
+    async def sync_last_7_days_health(self, year: int, month: int, day: int) -> bool:
+        data = [0x0F, year % 100, month, day]
+        return await self.send_data(self.build_packet(FIELD_TYPE["HEALTH_MONITOR"], data))
+
 
 # ========== FastAPI 应用 ==========
 
@@ -643,6 +667,31 @@ async def api_get_step_freq_detail(year: int, month: int, day: int, hour: int, m
 @app.post("/api/gps_detail")
 async def api_get_gps_detail(year: int, month: int, day: int, hour: int, minute: int, second: int):
     return {"success": await bt_service.get_gps_detail(year, month, day, hour, minute, second)}
+
+
+# 新增缺失的 API 路由
+@app.post("/api/neck_wear_detection")
+async def api_set_neck_wear_detection(enabled: bool, get: bool = False):
+    if get:
+        return {"success": await bt_service.get_neck_wear_detection()}
+    return {"success": await bt_service.set_neck_wear_detection(enabled)}
+
+
+@app.post("/api/neck_sensor_calibration")
+async def api_neck_sensor_calibration(step: int):
+    return {"success": await bt_service.calibrate_neck_sensor(step)}
+
+
+@app.post("/api/neck_stretch_reminder")
+async def api_set_neck_stretch_reminder(interval: int, get: bool = False):
+    if get:
+        return {"success": await bt_service.get_neck_stretch_reminder()}
+    return {"success": await bt_service.set_neck_stretch_reminder(interval)}
+
+
+@app.post("/api/sync_last_7_days_health")
+async def api_sync_last_7_days_health(year: int, month: int, day: int):
+    return {"success": await bt_service.sync_last_7_days_health(year, month, day)}
 
 
 @app.websocket("/ws")
