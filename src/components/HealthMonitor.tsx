@@ -36,7 +36,11 @@ export function HealthMonitor({ disabled, heartRateData, spo2Data, onClearHealth
   const [neckWearDetection, setNeckWearDetection] = useState(true);
   const [neckStretchInterval, setNeckStretchInterval] = useState(30);
   const [calibrationStep, setCalibrationStep] = useState(0);
-  
+
+  // 测量状态
+  const [spo2Measuring, setSpo2Measuring] = useState(false);
+  const [hrMeasuring, setHrMeasuring] = useState(false);
+
   // 紧急联系人
   const [contact, setContact] = useState<EmergencyContact>({
     countryCode: '86',
