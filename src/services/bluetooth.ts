@@ -581,12 +581,11 @@ class BluetoothService {
     return this.sendData(packet);
   }
 
-  // 3.11 久坐提醒设置
+  // 3.11 久坐提醒设置（3月3号更新：只有开关，无时间间隔）
   async setSedentaryReminder(setting: MonitorSetting): Promise<boolean> {
     const data = [
       TYPE_ID.SEDENTARY_REMINDER,
       setting.enabled ? SWITCH_STATE.ON : SWITCH_STATE.OFF,
-      setting.interval || 5,
     ];
     const packet = this.buildPacket(FIELD_TYPE.HEALTH_MONITOR, data);
     return this.sendData(packet);

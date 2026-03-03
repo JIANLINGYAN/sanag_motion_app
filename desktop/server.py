@@ -7,6 +7,9 @@ import asyncio
 import json
 import struct
 import os
+import sys
+import webbrowser
+import threading
 from datetime import datetime
 from typing import Optional, Callable
 from pathlib import Path
@@ -14,9 +17,20 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import uvicorn
+from uvicorn.config import LOGGING_CONFIG
 
-# 获取脚本所在目录
-SCRIPT_DIR = Path(__file__).parent.resolve()
+# 获取脚本所在目录（支持 PyInstaller 打包）
+def get_resource_dir():
+    """获取资源目录（兼容开发环境和 PyInstaller 打包环境）"""
+    if hasattr(sys, '_MEIPASS'):
+        # PyInstaller 打包后的临时目录
+        return Path(sys._MEIPASS)
+    else:
+        # 开发环境
+        return Path(__file__).parent.resolve()
+
+import sys
+SCRIPT_DIR = get_resource_dir()
 STATIC_DIR = SCRIPT_DIR / "static"
 
 # WinRT 蓝牙相关导入
@@ -368,8 +382,8 @@ class BluetoothService:
         data = [TYPE_ID["HEART_RATE_MEASURE"], SWITCH_STATE["OFF"] if start else SWITCH_STATE["ON"]]
         return await self.send_data(self.build_packet(FIELD_TYPE["HEALTH_MONITOR"], data))
     
-    async def set_sedentary_reminder(self, enabled: bool, interval: int = 5) -> bool:
-        data = [TYPE_ID["SEDENTARY_REMINDER"], SWITCH_STATE["ON"] if enabled else SWITCH_STATE["OFF"], interval]
+    async def set_sedentary_reminder(self, enabled: bool) -> bool:
+        data = [TYPE_ID["SEDENTARY_REMINDER"], SWITCH_STATE["ON"] if enabled else SWITCH_STATE["OFF"]]
         return await self.send_data(self.build_packet(FIELD_TYPE["HEALTH_MONITOR"], data))
     
     async def get_sedentary_reminder(self) -> bool:
@@ -623,10 +637,10 @@ async def api_set_heart_rate_measure(start: bool):
     return {"success": await bt_service.set_heart_rate_measure(start)}
 
 @app.post("/api/sedentary_reminder")
-async def api_set_sedentary_reminder(enabled: bool, interval: int = 5, get: bool = False):
+async def api_set_sedentary_reminder(enabled: bool, get: bool = False):
     if get:
         return {"success": await bt_service.get_sedentary_reminder()}
-    return {"success": await bt_service.set_sedentary_reminder(enabled, interval)}
+    return {"success": await bt_service.set_sedentary_reminder(enabled)}
 
 @app.post("/api/heart_rate_broadcast")
 async def api_set_heart_rate_broadcast(enabled: bool, get: bool = False):
@@ -777,11 +791,30 @@ except:
     pass
 
 
+def open_browser():
+    """延迟打开浏览器"""
+    import time
+    time.sleep(1.5)
+    webbrowser.open("http://localhost:8000")
+
 if __name__ == "__main__":
     print("=" * 50)
-    print("Sanag 蓝牙工具 - 桌面版 (WinRT)")
+    print("Sanag Bluetooth Tool - Desktop (WinRT)")
     print("=" * 50)
-    print(f"WinRT 可用: {WINRT_AVAILABLE}")
-    print("访问: http://localhost:8000")
+    print(f"WinRT Available: {WINRT_AVAILABLE}")
+    print("URL: http://localhost:8000")
     print("=" * 50)
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    
+    # 在后台线程打开浏览器
+    threading.Thread(target=open_browser, daemon=True).start()
+    
+    # 简化日志配置，避免 isatty 错误
+    LOGGING_CONFIG["formatters"]["default"]["fmt"] = "%(levelprefix)s %(message)s"
+    LOGGING_CONFIG["formatters"]["access"]["fmt"] = "%(levelprefix)s %(client_addr)s - \"%(request_line)s\" %(status_code)s"
+    
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=8000,
+        log_config=LOGGING_CONFIG
+    )

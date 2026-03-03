@@ -375,13 +375,12 @@ function parseHeartRateMeasure(data: Uint8Array): Record<string, unknown> {
   };
 }
 
-// 解析久坐提醒
+// 解析久坐提醒（3月3号更新：只有开关，无时间间隔）
 function parseSedentaryReminder(data: Uint8Array): Record<string, unknown> {
-  if (data.length < 6) return { error: '数据长度不足' };
+  if (data.length < 5) return { error: '数据长度不足' };
   return {
     enabled: data[4] === SWITCH_STATE.ON,
     state: getSwitchName(data[4]),
-    interval: data[5],
   };
 }
 
@@ -394,13 +393,29 @@ function parseHeartRateBroadcast(data: Uint8Array): Record<string, unknown> {
   };
 }
 
-// 解析颈椎传感器佩戴检测
+// 获取佩戴模式名称
+function getWearModeName(mode: number): string {
+  switch (mode) {
+    case 0x00: return '双耳佩戴';
+    case 0x01: return '单耳佩戴';
+    case 0x02: return '双耳出耳';
+    default: return `未知模式(0x${mode.toString(16)})`;
+  }
+}
+
+// 解析颈椎传感器佩戴检测（3月3号更新：增加模式字段）
 function parseNeckSensorWearDetection(data: Uint8Array): Record<string, unknown> {
   if (data.length < 5) return { error: '数据长度不足' };
-  return {
+  const result: Record<string, unknown> = {
     enabled: data[4] === SWITCH_STATE.ON,
     state: getSwitchName(data[4]),
   };
+  // 如果有模式字段（最新协议）
+  if (data.length >= 6) {
+    result.wearMode = data[5];
+    result.wearModeName = getWearModeName(data[5]);
+  }
+  return result;
 }
 
 // 解析颈椎传感器校准
@@ -498,15 +513,17 @@ function parseSyncLast7DaysHealth(data: Uint8Array): Record<string, unknown> {
     result.records = records;
   }
 
-  // 心率数据 (0x02) 或 血氧数据 (0x03) - 新格式
-  // Data[5]=日, Data[6]=时, Data[7]=分, Data[8]=值, Data[9]=数据标识
-  if ((dataType === 0x02 || dataType === 0x03) && data.length >= 10) {
-    const day = data[5];
-    const hour = data[6];
-    const minute = data[7];
-    const value = data[8];
-    const flag = data[9];
-    result.day = day;
+  // 心率数据 (0x02) 或 血氧数据 (0x03) - 新格式（3月3号更新）
+  // Data[5-7]=年月日, Data[8]=时, Data[9]=分, Data[10]=值, Data[11]=数据标识
+  if ((dataType === 0x02 || dataType === 0x03) && data.length >= 12) {
+    const year = data[5];
+    const month = data[6];
+    const day = data[7];
+    const hour = data[8];
+    const minute = data[9];
+    const value = data[10];
+    const flag = data[11];
+    result.date = `20${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
     result.time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
     result.value = dataType === 0x02 ? `${value} bpm` : `${value} %`;
     result.flag = getDataFlagName(flag);
@@ -515,26 +532,28 @@ function parseSyncLast7DaysHealth(data: Uint8Array): Record<string, unknown> {
     result.isComplete = flag === 0x03; // 7天数据全部返回完成
   }
 
-  // 颈椎健康数据 (0x04) - 新格式
-  // Data[5]=日, Data[6]=时, Data[7-10]=当天总佩戴时长, Data[11]=每小时佩戴时长
-  // Data[12-16]=5个level占比, Data[17]=数据标识
-  if (dataType === 0x04 && data.length >= 18) {
-    const day = data[5];
-    const hour = data[6];
-    const totalDuration = parse4ByteValue(data, 7); // 当天总佩戴时长
-    const hourlyDuration = data[11]; // 每小时佩戴时长
-    const flag = data[17];
+  // 颈椎健康数据 (0x04) - 新格式（3月3号更新）
+  // Data[5-7]=年月日, Data[8]=时, Data[9-12]=当天总佩戴时长, Data[13]=每小时佩戴时长
+  // Data[14-18]=5个level占比, Data[19]=数据标识
+  if (dataType === 0x04 && data.length >= 20) {
+    const year = data[5];
+    const month = data[6];
+    const day = data[7];
+    const hour = data[8];
+    const totalDuration = parse4ByteValue(data, 9); // 当天总佩戴时长
+    const hourlyDuration = data[13]; // 每小时佩戴时长
+    const flag = data[19];
     
-    result.day = day;
+    result.date = `20${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
     result.hour = hour;
     result.totalDuration = totalDuration;
     result.totalDurationHours = (totalDuration / 60).toFixed(1);
     result.hourlyDuration = hourlyDuration;
-    result.level1 = data[12];
-    result.level2 = data[13];
-    result.level3 = data[14];
-    result.level4 = data[15];
-    result.level5 = data[16];
+    result.level1 = data[14];
+    result.level2 = data[15];
+    result.level3 = data[16];
+    result.level4 = data[17];
+    result.level5 = data[18];
     result.flag = getDataFlagName(flag);
     result.flagCode = flag;
     result.isDayEnd = flag === 0x02; // 当天数据结束
@@ -583,10 +602,10 @@ function formatDuration(seconds: number): string {
   return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
-// 解析运动总结
+// 解析运动总结（3月3号更新：增加最高/最低步频字段）
 function parseSportSummary(data: Uint8Array): Record<string, unknown> {
   if (data.length < 49) return { error: '数据长度不足' };
-  return {
+  const result: Record<string, unknown> = {
     startTime: `20${data[4]}-${data[5].toString().padStart(2, '0')}-${data[6].toString().padStart(2, '0')} ${data[7].toString().padStart(2, '0')}:${data[8].toString().padStart(2, '0')}:${data[9].toString().padStart(2, '0')}`,
     sportType: getSportTypeName(data[10]),
     sportTypeCode: data[10],
@@ -619,6 +638,12 @@ function parseSportSummary(data: Uint8Array): Record<string, unknown> {
     lactateHeartRateZone: data[47],
     lactatePaceZone: data[48],
   };
+  // 新增字段（3月3号更新）
+  if (data.length >= 51) {
+    result.maxStepFreq = data[49];
+    result.minStepFreq = data[50];
+  }
+  return result;
 }
 
 // 解析运动分段

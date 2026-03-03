@@ -621,17 +621,13 @@
                         <div id="subtab-other" class="subtab-content space-y-5 hidden">
                             <!-- 久坐提醒 -->
                             <div class="bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl p-5 border border-orange-100">
-                                <h4 class="font-semibold mb-4 text-orange-900">久坐提醒</h4>
+                                <h4 class="font-semibold mb-4 text-orange-900">久坐提醒（3月3号更新）</h4>
                                 <div class="flex items-center justify-between mb-4">
                                     <label class="text-sm text-orange-800">提醒开关</label>
                                     <label class="relative inline-flex items-center cursor-pointer">
                                         <input type="checkbox" id="sedentaryEnabled" checked class="sr-only peer">
                                         <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
                                     </label>
-                                </div>
-                                <div class="mb-4">
-                                    <label class="block text-sm font-medium mb-2 text-orange-800">提醒间隔 (分钟, 1-10)</label>
-                                    <input type="number" id="sedentaryInterval" value="5" min="1" max="10" class="input-modern w-full rounded-lg px-4 py-2.5 bg-white/80">
                                 </div>
                                 <div class="flex gap-3">
                                     <button onclick="setSedentaryReminder()" class="btn-primary flex-1 text-white px-4 py-2 rounded-lg text-sm font-medium bg-orange-500">设置</button>
@@ -1183,14 +1179,13 @@
         }
         async function getEmergencyContact() { await apiPost('/api/emergency_contact', { get: true }); }
 
-        // 久坐提醒
+        // 久坐提醒（3月3号更新：只有开关，无时间间隔）
         async function setSedentaryReminder() {
             await apiPost('/api/sedentary_reminder', {
-                enabled: document.getElementById('sedentaryEnabled').checked,
-                interval: document.getElementById('sedentaryInterval').value
+                enabled: document.getElementById('sedentaryEnabled').checked
             });
         }
-        async function getSedentaryReminder() { await apiPost('/api/sedentary_reminder', { enabled: true, interval: 5, get: true }); }
+        async function getSedentaryReminder() { await apiPost('/api/sedentary_reminder', { get: true }); }
 
         // 心率广播
         async function setHeartRateBroadcast() {
@@ -1378,12 +1373,18 @@
                     result.data = { measuring: data[4] === 1, state: data[4] === 1 ? '测量中' : '已停止' };
                 } else if (typeId === 0x09) { // 心率测量
                     result.data = { measuring: data[4] === 1, state: data[4] === 1 ? '测量中' : '已停止' };
-                } else if (typeId === 0x0A) { // 久坐提醒
-                    result.data = { enabled: data[4] === 0, state: data[4] === 0 ? '开启' : '关闭', interval: data[5] + ' 分钟' };
+                } else if (typeId === 0x0A) { // 久坐提醒（3月3号更新：只有开关，无时间间隔）
+                    result.data = { enabled: data[4] === 0, state: data[4] === 0 ? '开启' : '关闭' };
                 } else if (typeId === 0x0B) { // 心率广播
                     result.data = { enabled: data[4] === 0, state: data[4] === 0 ? '开启' : '关闭' };
-                } else if (typeId === 0x0C) { // 颈椎传感器佩戴检测
-                    result.data = { enabled: data[4] === 0, state: data[4] === 0 ? '开启' : '关闭' };
+                } else if (typeId === 0x0C) { // 颈椎传感器佩戴检测（3月3号更新：增加模式字段）
+                    const wearModes = { 0x00: '双耳佩戴', 0x01: '单耳佩戴', 0x02: '双耳出耳' };
+                    result.data = { 
+                        enabled: data[4] === 0, 
+                        state: data[4] === 0 ? '开启' : '关闭',
+                        wearMode: data.length >= 6 ? data[5] : undefined,
+                        wearModeName: data.length >= 6 ? (wearModes[data[5]] || '未知') : undefined
+                    };
                 } else if (typeId === 0x0D && data.length >= 6) { // 颈椎传感器校准
                     const stepNames = { 0x01: '第一步：直视', 0x02: '第二步：低头', 0x03: '第三步：回正' };
                     result.data = { step: data[4], stepName: stepNames[data[4]] || '未知步骤', result: data[5] === 0 ? '成功' : '失败' };
@@ -1412,31 +1413,99 @@
                         result.data.records = records;
                     }
                     
-                    // 心率/血氧数据 (0x02/0x03) - 新格式：Data[5]=日, Data[6]=时, Data[7]=分, Data[8]=值, Data[9]=数据标识
-                    if ((dataType === 0x02 || dataType === 0x03) && data.length >= 10) {
-                        result.data.day = data[5];
-                        result.data.time = data[6].toString().padStart(2, '0') + ':' + data[7].toString().padStart(2, '0');
-                        result.data.value = data[8] + (dataType === 0x02 ? ' bpm' : ' %');
-                        result.data.flag = getDataFlagName(data[9]);
-                        result.data.isDayEnd = data[9] === 0x02; // 当天数据结束
-                        result.data.isComplete = data[9] === 0x03; // 7天数据全部返回完成
+                    // 心率/血氧数据 (0x02/0x03) - 新格式（3月3号更新）：Data[5-7]=年月日, Data[8]=时, Data[9]=分, Data[10]=值, Data[11]=数据标识
+                    if ((dataType === 0x02 || dataType === 0x03) && data.length >= 12) {
+                        result.data.date = '20' + data[5] + '-' + data[6].toString().padStart(2, '0') + '-' + data[7].toString().padStart(2, '0');
+                        result.data.time = data[8].toString().padStart(2, '0') + ':' + data[9].toString().padStart(2, '0');
+                        result.data.value = data[10] + (dataType === 0x02 ? ' bpm' : ' %');
+                        result.data.flag = getDataFlagName(data[11]);
+                        result.data.isDayEnd = data[11] === 0x02; // 当天数据结束
+                        result.data.isComplete = data[11] === 0x03; // 7天数据全部返回完成
                     }
                     
-                    // 颈椎健康数据 (0x04) - 新格式：Data[5]=日, Data[6]=时, Data[7-10]=当天总佩戴时长, Data[11]=每小时佩戴时长, Data[12-16]=5个level占比, Data[17]=数据标识
-                    if (dataType === 0x04 && data.length >= 18) {
-                        result.data.day = data[5];
-                        result.data.hour = data[6];
-                        result.data.totalDuration = parse4Byte(data, 7); // 当天总佩戴时长
-                        result.data.totalDurationHours = (parse4Byte(data, 7) / 60).toFixed(1) + ' 小时';
-                        result.data.hourlyDuration = data[11]; // 每小时佩戴时长
-                        result.data.level1 = data[12];
-                        result.data.level2 = data[13];
-                        result.data.level3 = data[14];
-                        result.data.level4 = data[15];
-                        result.data.level5 = data[16];
-                        result.data.flag = getDataFlagName(data[17]);
-                        result.data.isDayEnd = data[17] === 0x02; // 当天数据结束
-                        result.data.isComplete = data[17] === 0x03; // 7天所有颈椎健康数据全部返回完成
+                    // 颈椎健康数据 (0x04) - 新格式（3月3号更新）：Data[5-7]=年月日, Data[8]=时, Data[9-12]=当天总佩戴时长, Data[13]=每小时佩戴时长, Data[14-18]=5个level占比, Data[19]=数据标识
+                    if (dataType === 0x04 && data.length >= 20) {
+                        result.data.date = '20' + data[5] + '-' + data[6].toString().padStart(2, '0') + '-' + data[7].toString().padStart(2, '0');
+                        result.data.hour = data[8];
+                        result.data.totalDuration = parse4Byte(data, 9); // 当天总佩戴时长
+                        result.data.totalDurationHours = (parse4Byte(data, 9) / 60).toFixed(1) + ' 小时';
+                        result.data.hourlyDuration = data[13]; // 每小时佩戴时长
+                        result.data.level1 = data[14];
+                        result.data.level2 = data[15];
+                        result.data.level3 = data[16];
+                        result.data.level4 = data[17];
+                        result.data.level5 = data[18];
+                        result.data.flag = getDataFlagName(data[19]);
+                        result.data.isDayEnd = data[19] === 0x02; // 当天数据结束
+                        result.data.isComplete = data[19] === 0x03; // 7天所有颈椎健康数据全部返回完成
+                    }
+                }
+            } else if (fieldType === 0xBD) {
+                // 运动健康功能解析
+                const sportStatusNames = { 0x00: '未开启', 0x01: '开启', 0x02: '暂停', 0x03: '恢复', 0x04: '结束' };
+                const sportTypeNames = { 0x00: '室内跑步机', 0x01: '户外跑步', 0x02: '户外健走' };
+                
+                if (typeId === 0x00 && data.length >= 12) { // 运动状态设置
+                    result.data = {
+                        status: sportStatusNames[data[4]] || '未知',
+                        statusCode: data[4],
+                        startTime: '20' + data[5] + '-' + data[6].toString().padStart(2, '0') + '-' + data[7].toString().padStart(2, '0') + ' ' + data[8].toString().padStart(2, '0') + ':' + data[9].toString().padStart(2, '0') + ':' + data[10].toString().padStart(2, '0'),
+                        sportType: sportTypeNames[data[11]] || '未知',
+                        sportTypeCode: data[11]
+                    };
+                } else if (typeId === 0x02 && data.length >= 24) { // 实时运动数据
+                    result.data = {
+                        duration: parse3Byte(data, 4),
+                        distance: parse3Byte(data, 7),
+                        steps: parse3Byte(data, 10),
+                        calories: parse2Byte(data, 13),
+                        heartRate: data[15],
+                        pace: (parse2Byte(data, 16) / 100).toFixed(2),
+                        stepFreq: data[18],
+                        groundContactTime: parse2Byte(data, 19),
+                        airTime: parse2Byte(data, 21),
+                        verticalAmplitude: data[23]
+                    };
+                } else if (typeId === 0x03 && data.length >= 49) { // 运动总结（3月3号更新：增加最高/最低步频）
+                    result.data = {
+                        startTime: '20' + data[4] + '-' + data[5].toString().padStart(2, '0') + '-' + data[6].toString().padStart(2, '0') + ' ' + data[7].toString().padStart(2, '0') + ':' + data[8].toString().padStart(2, '0') + ':' + data[9].toString().padStart(2, '0'),
+                        sportType: sportTypeNames[data[10]] || '未知',
+                        sportTypeCode: data[10],
+                        duration: parse3Byte(data, 11),
+                        distance: parse3Byte(data, 14),
+                        vo2max: data[17],
+                        steps: parse3Byte(data, 18),
+                        calories: parse2Byte(data, 21),
+                        avgHeartRate: data[31],
+                        avgStepFreq: data[32],
+                        maxStepFreq: data.length >= 51 ? data[49] : undefined,
+                        minStepFreq: data.length >= 51 ? data[50] : undefined
+                    };
+                } else if (typeId === 0x04 && data.length >= 11) { // 运动分段
+                    result.data = {
+                        index: data[4],
+                        isLast: data[4] === 0xFF,
+                        duration: parse2Byte(data, 5),
+                        pace: (parse2Byte(data, 7) / 100).toFixed(2),
+                        avgHeartRate: data[9],
+                        avgStepFreq: data[10]
+                    };
+                } else if (typeId === 0x05) { // 数据接收完成
+                    result.data = { result: data[4] === 0 ? '成功' : '失败' };
+                } else if (typeId === 0x06) { // 运动条数查询
+                    if (data.length >= 5 && data[4] === 0xFF) {
+                        result.data = { count: 0, records: [] };
+                    } else if (data.length >= 5) {
+                        const count = data[4];
+                        const records = [];
+                        for (let i = 0; i < count && 5 + i * 6 < data.length; i++) {
+                            const offset = 5 + i * 6;
+                            records.push({
+                                index: i + 1,
+                                startTime: '20' + data[offset] + '-' + data[offset + 1].toString().padStart(2, '0') + '-' + data[offset + 2].toString().padStart(2, '0') + ' ' + data[offset + 3].toString().padStart(2, '0') + ':' + data[offset + 4].toString().padStart(2, '0') + ':' + data[offset + 5].toString().padStart(2, '0')
+                            });
+                        }
+                        result.data = { count, records };
                     }
                 }
             }

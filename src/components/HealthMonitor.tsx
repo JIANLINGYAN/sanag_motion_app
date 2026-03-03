@@ -29,7 +29,7 @@ export function HealthMonitor({ disabled, heartRateData, spo2Data, onClearHealth
   const [hrSetting, setHrSetting] = useState<MonitorSetting>({ enabled: true, interval: 10 });
   const [neckSetting, setNeckSetting] = useState<MonitorSetting>({ enabled: true });
   const [fallSetting, setFallSetting] = useState<MonitorSetting>({ enabled: true });
-  const [sedentarySetting, setSedentarySetting] = useState<MonitorSetting>({ enabled: true, interval: 5 });
+  const [sedentarySetting, setSedentarySetting] = useState<MonitorSetting>({ enabled: true });
   const [hrBroadcast, setHrBroadcast] = useState(true);
 
   // 传感器设置
@@ -589,29 +589,13 @@ export function HealthMonitor({ disabled, heartRateData, spo2Data, onClearHealth
           <TabsContent value="other" className="space-y-4">
             <div className="space-y-4">
               <div className="border p-4 rounded-lg">
-                <h4 className="font-medium mb-3">久坐提醒</h4>
-                <div className="flex items-center justify-between mb-2">
+                <h4 className="font-medium mb-3">久坐提醒（3月3号更新）</h4>
+                <div className="flex items-center justify-between mb-3">
                   <Label>提醒开关</Label>
                   <Switch
                     checked={sedentarySetting.enabled}
                     onCheckedChange={(checked) =>
-                      setSedentarySetting({ ...sedentarySetting, enabled: checked })
-                    }
-                    disabled={disabled}
-                  />
-                </div>
-                <div className="space-y-2 mb-3">
-                  <Label>提醒间隔 (分钟, 范围1-10)</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={sedentarySetting.interval}
-                    onChange={(e) =>
-                      setSedentarySetting({
-                        ...sedentarySetting,
-                        interval: parseInt(e.target.value) || 5,
-                      })
+                      setSedentarySetting({ enabled: checked })
                     }
                     disabled={disabled}
                   />
